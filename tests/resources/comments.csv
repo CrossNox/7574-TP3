@@ -1,0 +1,9 @@
+type,id,subreddit.id,subreddit.name,subreddit.nsfw,created_utc,permalink,body,sentiment,score
+comment,i2x2j0g,2s5ti,meirl,false,1648771186,https://old.reddit.com/r/meirl/comments/tswh3j/meirl/i2x2j0g/,Comment1,,1
+comment,i2x2hqk,2s5ti,meirl,false,1648771171,https://old.reddit.com/r/meirl/comments/tt9v20/meirl/i2x2hqk/,Comment2,-0.4767,5
+comment,i2x2dv0,2s5ti,meirl,false,1648771121,https://old.reddit.com/r/meirl/comments/tt5aas/meirl/i2x2dv0/,Comment3,0.0,3
+comment,i2x2d15,2s5ti,meirl,false,1648771110,https://old.reddit.com/r/meirl/comments/ttbnpo/meirl/i2x2d15/,Comment3,0.765,3
+comment,i2x28i1,2s5ti,meirl,false,1648771053,https://old.reddit.com/r/meirl/comments/tswh3j/meirl/i2x28i1/,Comment4,0.0,1
+comment,i2x27un,2s5ti,meirl,false,1648771044,https://old.reddit.com/r/meirl/comments/tt5aas/meirl/i2x27un/,Comment5,0.6261,1
+comment,i2x26cp,2s5ti,meirl,false,1648771025,https://old.reddit.com/r/meirl/comments/tswh3j/meirl/i2x26cp/,Comment6,0.0,1
+comment,i2x23wn,2s5ti,meirl,false,1648770994,https://old.reddit.com/r/meirl/comments/tswh3j/meirl/i2x23wn/,Comment7,,1

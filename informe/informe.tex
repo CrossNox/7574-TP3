@@ -1,0 +1,54 @@
+\documentclass[titlepage,a4paper,oneside]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{mathabx}
+\usepackage{graphicx}
+\usepackage{minted}
+\usepackage{booktabs}
+\usepackage[english,spanish,es-noindentfirst,es-nosectiondot,es-nolists,
+es-noshorthands,es-lcroman,es-tabla]{babel}
+\usepackage{lmodern}             % Use Latin Modern fonts
+\usepackage[T1]{fontenc}         % Better output when a diacritic/accent is used
+\usepackage[utf8]{inputenc}      % Allows to input accented characters
+\usepackage{textcomp}            % Avoid conflicts with siunitx and microtype
+\usepackage{microtype}           % Improves justification and typography
+\usepackage[svgnames]{xcolor}    % Svgnames option loads navy (blue) colour
+\usepackage[hidelinks,urlcolor=blue]{hyperref}
+\hypersetup{colorlinks=true, allcolors=Navy, pdfstartview={XYZ null null 1}}
+\newtheorem{lemma}{Lema}
+\usepackage[width=14cm,left=3.5cm,marginparwidth=3cm,marginparsep=0.35cm,
+height=21cm,top=3.7cm,headsep=1cm, headheight=1.6cm,footskip=1.2cm]{geometry}
+\usepackage{csquotes}
+\usepackage{biblatex}
+\addbibresource{informe.bib}
+\usepackage[pdf]{graphviz}
+
+
+\begin{document}
+
+\begin{titlepage}
+\title{
+	75.74 \-- Distribuidos I \-- TP3\\
+    \large Facultad de Ingeniería\\
+	Universidad de Buenos Aires
+}
+\author{
+	Mermet, Ignacio Javier\\
+	\texttt{98153}
+}
+\date{Junio 2022}
+
+\maketitle
+
+\end{titlepage}
+
+\tableofcontents
+
+\newpage
+
+\section{Sobre la entrega}
+El código de la entrega se puede encontrar en \href{https://github.com/CrossNox/7574-TP3}{GitHub}.
+
+\printbibliography
+
+\end{document}

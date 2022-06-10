@@ -1,0 +1,47 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks.git
+    rev: v2.5.0
+    hooks:
+    - id: trailing-whitespace
+    - id: check-merge-conflict
+    - id: check-toml
+    - id: debug-statements
+  - repo: local
+    hooks:
+      - id: pycln
+        name: pycln
+        entry: poetry run pycln lazarus tests
+        language: system
+        types:
+          - python
+      - id: pylint
+        name: pylint
+        entry: poetry run pylint lazarus tests
+        language: system
+        types:
+          - python
+      - id: black
+        name: black
+        entry: poetry run black lazarus tests
+        language: system
+        types:
+          - python
+      - id: flake8
+        name: flake8
+        entry: poetry run flake8 lazarus tests
+        language: system
+        types:
+          - python
+      - id: isort
+        name: isort
+        entry: poetry run isort lazarus tests
+        language: system
+        types:
+          - python
+      - id: mypy
+        name: mypy
+        entry: poetry run mypy
+        language: system
+        types:
+          - python
+        exclude: tests/*

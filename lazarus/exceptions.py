@@ -1,0 +1,2 @@
+class SigtermError(Exception):
+    pass
