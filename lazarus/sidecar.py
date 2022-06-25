@@ -1,6 +1,6 @@
-from multiprocessing import Process
 import time
 from typing import List
+from multiprocessing import Process
 
 from lazarus.cfg import cfg
 from lazarus.constants import DEFAULT_SLEEP_TIME
