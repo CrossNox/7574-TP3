@@ -12,7 +12,7 @@ es-noshorthands,es-lcroman,es-tabla]{babel}
 \usepackage[utf8]{inputenc}      % Allows to input accented characters
 \usepackage{textcomp}            % Avoid conflicts with siunitx and microtype
 \usepackage{microtype}           % Improves justification and typography
-\usepackage[svgnames]{xcolor}    % Svgnames option loads navy (blue) colour
+\usepackage[svgnames,table,xcdraw]{xcolor}    % Svgnames option loads navy (blue) colour
 \usepackage[hidelinks,urlcolor=blue]{hyperref}
 \hypersetup{colorlinks=true, allcolors=Navy, pdfstartview={XYZ null null 1}}
 \newtheorem{lemma}{Lema}
@@ -28,13 +28,19 @@ height=21cm,top=3.7cm,headsep=1cm, headheight=1.6cm,footskip=1.2cm]{geometry}
 
 \begin{titlepage}
 \title{
-	75.74 \-- Distribuidos I \-- TP3\\
+	75.74 \-- Distribuidos I \-- TP4\\
     \large Facultad de Ingeniería\\
 	Universidad de Buenos Aires
 }
 \author{
+	del Mazo, Federico\\
+	\texttt{100029}
+	\and
 	Mermet, Ignacio Javier\\
 	\texttt{98153}
+	\and
+	Ventura, Julián\\
+	\texttt{102391}
 }
 \date{Junio 2022}
 
@@ -50,7 +56,7 @@ height=21cm,top=3.7cm,headsep=1cm, headheight=1.6cm,footskip=1.2cm]{geometry}
 El código de la entrega se puede encontrar en \href{https://github.com/CrossNox/7574-TP3}{GitHub}.
 - Mencionar tecnologías y que vean el readme para ve como se ejecuta.
 
-\section{Analsis del trabajo a realizar}
+\section{Análisis del trabajo a realizar}
 
 \subsection{Puntos clave}
 % TODO: los cuatro que nos dijo Eze
@@ -62,14 +68,130 @@ El código de la entrega se puede encontrar en \href{https://github.com/CrossNox
 - Lógica
 - De Procesos
 - De desarrollo
-- Fisica
+- Física
 
 \subsection{Componentes}
 
-\subsection{Servidor de cara al cliente}
-- Explicar protocolo
+\subsection{Servidor de cara al cliente}\label{ServerClient}
+- Primero el cliente debe mandar un request por TCP de intención de arrancar a mandar comentarios y posts
+	- Deberia mandar con sessionid nulo, con payload nulo y con type begin
 
+- status code no-zero es un tipo de error
+- Esto puede devolver un error de "intente mas tarde"
+
+\begin{figure}[H]
+\begin{minted}[]{json}
+{
+	"status_code": 1,
+	"payload": "intente mas tarde"
+}
+\end{minted}
+\caption{...}
+\end{figure}
+
+
+- O bien puede devolver un id de sesión valido
+\begin{figure}[H]
+\begin{minted}[]{json}
+{
+	"status_code": 0,
+	"payload": "sessionid"
+}
+\end{minted}
+\caption{...}
+\end{figure}
+
+
+- Entonces para cada comentario y post deberá mandar un payload en JSON
+
+\begin{figure}[H]
+\begin{minted}[]{json}
+{
+	"sessionid": "...",
+	"type": "<type>",
+	"payload": "..."
+}
+\end{minted}
+\caption{Donde \texttt{<type>} puede ser comment, post, begin, result o ACK.}
+\end{figure}
+
+
+- El server enviará un ACK por cada mensaje recibido y lo tratará como corresponda
+
+\begin{figure}[H]
+\begin{minted}[]{json}
+{
+	"status_code": 0,
+	"payload": "ACK"
+}
+\end{minted}
+\caption{...}
+\end{figure}
+
+
+O un mensaje de error, si surgiera.
+
+- En caso que se caiga la conexión TCP, el cliente deberá mantener su estado y saber cual fue el ultimo mensaje que fue correctamente enviado. Desde ahí intentará mandar al siguiente servidor en el orden de la lista de preferencia.
+- Un payload vacío señaliza un end of stream. De este modo, el cliente deberá mandar un EoS tanto para comentarios como para posts.
+
+- Para pedir el resultado debera mandar un mensaje con su sessionid, type result y con payload nulo. Una vez recibido correctamente el resultado, debera mandar un mensaje con su sessionid, type ACK y un payload vacio.
+
+Si el resultado no estuviera disponible o el sessionid no fuera valido, se enviarán codigos de error correspondientes. Consultar el anexo para ver los posibles errores.
+
+% TODO: hacer el anexo de errores
+% TODO: agregar un id autoincremental por stream y por session id en el server?
+% TODO: pensar que pasa si se cae el cliente
+
+El servidor está replicado, por lo que requiere un algoritmo de elección de lider. Cualquier instancia debería poder contestar un mensaje de un cliente, pero solo el lider seria capaz de llevar una sesión. Es decir, solo el lider puede recibir nuevos posts y comentarios, y es el unico que puede contestar pedidos de resultados o nuevos ids de sesion.
+
+En caso que una replica recibiera un mensaje de un cliente, deberá contestar con un codigo deerror y como payload la direccion del lider.
+
+% todos amamos al lider, el lider es bueno
 \subsubsection{Workers Stateless}
+En líneas generales, un worker stateless sigue el siguiente patrón:
+
+\begin{figure}[H]
+\begin{minted}[
+    mathescape,
+	linenos,
+    numbersep=5pt,
+    gobble=0,
+    frame=lines,
+    framesep=2mm]{text}
+obtener mensaje de queue de entrada
+procesar mensaje
+depositar resultado en queue de salida
+enviar ACK a la queue de entrada
+\end{minted}
+\caption{Pseudocódigo de un worker stateless.}
+\end{figure}
+
+Imaginemos el escenario donde tenemos varios workers compitiendo por una misma queue...% TODO: llenar
+
+En la siguiente tabla podemos ver los resultados del experimento %TODO: completar con los datos de las capturas de telegram
+
+% Please add the following required packages to your document preamble:
+% \usepackage[table,xcdraw]{xcolor}
+% If you use beamer only pass "xcolor=table" option, i.e. \documentclass[xcolor=table]{beamer}
+\begin{table}[]
+\centering
+\begin{tabular}{l|llll|}
+\cline{2-5}
+\cellcolor[HTML]{FFFFFF}                  & \multicolumn{3}{l|}{\textbf{Direct Exchange}} & \textbf{Workers} \\ \hline
+\multicolumn{1}{|l|}{prefetch} & \multicolumn{1}{l|}{\textbf{0}} & \multicolumn{1}{l|}{\textbf{1}} & \multicolumn{1}{l|}{\textbf{1000}} & \textbf{1} \\ \hline
+\multicolumn{1}{|l|}{\textit{producer}}   & 5.513               & 5.676      & 5.635      & \textbf{5.343}   \\
+\multicolumn{1}{|l|}{\textit{consumer 0}} & \textbf{3.536}      & 6.860      & 4.266      & 8.796            \\
+\multicolumn{1}{|l|}{\textit{consumer 1}} & \textbf{2.353}      & 6.834      & 3.210      & 7.239            \\
+\multicolumn{1}{|l|}{\textit{consumer 2}} & \textbf{2.112}      & 6.762      & 2.484      & 4.275            \\ \hline
+\end{tabular}
+\caption{Experimento para comparar las dos alternativas de implementación. En todas las ejecuciones se mandaron $50000$ mensajes, sin prints ni sleeps. Las queues fueron inicializadas como durables.}
+\label{exp-dex-wrk}
+\end{table}
+
+Proponemos la siguiente estructura:
+% TODO: insertar diagrama
+
+La capa de middleware se encargaría de repartir los mensajes al tópico correspondiente. Del mismo modo, cuando un productor deba señalizar un EoS, puede mandar el centinela a todos los consumiores por el topico correspondiente.
 
 \subsubsection{Workers Stateful}
 \textbf{Remoción de duplicados}:
@@ -88,8 +210,9 @@ El código de la entrega se puede encontrar en \href{https://github.com/CrossNox
 - Mostrar diagrama de secuencia
 
 \section{Cliente}
-- Explicar el protocolo
-- Que conoce las addresses de preferencia de los servers de cara al cliente
+- Para el protocolo ver \ref{ServerClient}.
+- Tiene una lista de preferencias de direcciones (host:port) de instancias de servidores de cara al cliente. Estas se pueden pasar como variables de entorno o archivo de configuración.
+- Una vez que haya pedido y obtenido exitosamente el resultado, deberá enviar el ACK y tratarlo como lo requiera.
 
 \printbibliography
 
