@@ -71,6 +71,7 @@ El código de la entrega se puede encontrar en \href{https://github.com/CrossNox
 - Física
 
 \subsection{Componentes}
+%TODO: anexos con el protocolo
 
 \subsection{Servidor de cara al cliente}\label{ServerClient}
 - Primero el cliente debe mandar un request por TCP de intención de arrancar a mandar comentarios y posts
@@ -193,8 +194,17 @@ Proponemos la siguiente estructura:
 
 La capa de middleware se encargaría de repartir los mensajes al tópico correspondiente. Del mismo modo, cuando un productor deba señalizar un EoS, puede mandar el centinela a todos los consumiores por el topico correspondiente.
 
+Si el worker 2 se cae, quedarian esperando que se procesen.
+
+Explicar las desventajas de hacer el round robin a mano.
+
 \subsubsection{Workers Stateful}
+
+
+
+
 \textbf{Remoción de duplicados}:
+
 
 
 \subsubsection{Revividor}
