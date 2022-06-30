@@ -14,18 +14,15 @@ class Transform(Task):
 
 
 class ExtractPostID(Transform):
-    def __call__(self, message):
+    def __call__(self, msg):
         msg_id = re.match(
-            r"https://old.reddit.com/r/me_?irl/comments/([^/]+)/.*",
-            message["permalink"],
+            r"https://old.reddit.com/r/me_?irl/comments/([^/]+)/.*", msg["permalink"]
         ).groups()
-
         if msg_id is None:
-            logger.error("Bad permalink %s", message["permalink"])
+            logger.error("Bad permalink %s", msg["permalink"])
             return
-
-        message["id"] = msg_id[0]
-        return message
+        msg["id"] = msg_id[0]
+        return msg
 
 
 class PostsMeanSentiment(Transform):

@@ -16,11 +16,12 @@ class Node(Process):
         self,
         callback: Type[TaskCls],
         dependencies: Optional[Dict[DependencyName, Host]] = None,
+        **callback_kwargs,
     ):
         super().__init__()
         self.current_session_id: Optional[str] = None
         self.dependencies = self.wait_for_dependencies(dependencies or {})
-        self.callback = callback(**self.dependencies)
+        self.callback = callback(**self.dependencies, **callback_kwargs)
 
     def wait_for_dependencies(self, dependencies):
         solved_dependencies = {}

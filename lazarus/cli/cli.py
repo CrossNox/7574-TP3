@@ -1,12 +1,16 @@
 import typer
 
+from lazarus.cli.filter import app as filter_app
 from lazarus.cli.dataset import app as dataset_app
+from lazarus.cli.transform import app as transform_app
 from lazarus.utils import DEFAULT_PRETTY, DEFAULT_VERBOSE, get_logger, config_logging
 
 logger = get_logger(__name__)
 
 app = typer.Typer()
 app.add_typer(dataset_app, name="dataset")
+app.add_typer(filter_app, name="filter")
+app.add_typer(transform_app, name="transform")
 
 
 @app.callback()
