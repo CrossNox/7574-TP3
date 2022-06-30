@@ -1,0 +1,16 @@
+version: '3'
+networks:
+  lazarus_net:
+    ipam:
+      config:
+      - subnet: 172.25.125.0/24
+      driver: default
+    name: lazarus_net
+services:
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq:3.9.16-management-alpine
+    ports:
+      - 15672:15672
+    networks:
+      - lazarus_net
