@@ -4,3 +4,7 @@ class SigtermError(Exception):
 
 class BadChecksumError(Exception):
     pass
+
+
+class IncorrectSessionId(Exception):
+    pass
