@@ -67,6 +67,8 @@ def monitor_heartbeat(
         except zmq.error.ZMQError as e:
             if e.errno == zmq.EAGAIN:
                 misses += 1
+            else:
+                raise
         finally:
             if misses == tolerance:
                 error_callback(host, port)
@@ -127,7 +129,7 @@ def monitor_ping(
 
     ctx = zmq.Context.instance()
     socket = ctx.socket(zmq.REQ)
-    socket.setsockopt_string(zmq.SNDTIMEO, sleep_time)
+    socket.setsockopt_string(zmq.RCVTIMEO, sleep_time)
     socket.connect(f"tcp://{host}:{port}")
 
     misses = 0
@@ -141,6 +143,8 @@ def monitor_ping(
         except zmq.error.ZMQError as e:
             if e.errno == zmq.EAGAIN:
                 misses += 1
+            else:
+                raise
         finally:
             if misses == tolerance:
                 error_callback(host, port)
