@@ -12,3 +12,7 @@ ED_KWDS: List[str] = ["university", "college", "student", "teacher", "professor"
 ED_KWDS_PATTERN: str = f'({"|".join(ED_KWDS)})'
 
 DEFAULT_SLEEP_TIME: int = 30
+DEFAULT_HEARTBEAT_PORT: int = 8080
+DEFAULT_PING_PORT: int = 8080
+HEARTBEAT: str = "HEARTBEAT"
+PING: str = "PING"

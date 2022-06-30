@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lazarus"
-version = "0.2.0"
+version = "0.3.0"
 description = "High Availability Reddit Memes Analyzer, for fun (and passing Distribuidos I)."
 authors = ["CrossNox <imermet@fi.uba.ar>"]
 
