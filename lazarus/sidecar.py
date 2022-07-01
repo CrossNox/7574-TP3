@@ -1,5 +1,5 @@
-import time
 from multiprocessing import Process
+import time
 from typing import List, Tuple, Callable
 
 import zmq
@@ -12,13 +12,18 @@ from lazarus.constants import (
     DEFAULT_SLEEP_TIME,
     DEFAULT_HEARTBEAT_PORT,
 )
+from lazarus.utils import get_logger
+
+logger = get_logger(__name__)
 
 
 class HeartbeatSender(Process):
     def __init__(
         self,
-        sleep_time: int = cfg.lazarus.sleep_time(default=DEFAULT_SLEEP_TIME),
-        port: int = cfg.lazarus.heartbeat_port(default=DEFAULT_HEARTBEAT_PORT),
+        sleep_time: int = cfg.lazarus.sleep_time(default=DEFAULT_SLEEP_TIME, cast=int),
+        port: int = cfg.lazarus.heartbeat_port(
+            default=DEFAULT_HEARTBEAT_PORT, cast=int
+        ),
     ):
         """Publish a heartbeat at regular intervals to notify you are still alive."""
         super().__init__()
@@ -30,7 +35,10 @@ class HeartbeatSender(Process):
         self.socket = ctx.socket(zmq.PUB)
         self.socket.bind(f"tcp://*:{self.port}")
 
+        logger.info("Publishing heartbeats at %s", self.port)
+
     def send_heartbeat(self):
+        logger.info("Sending heartbeat")
         self.socket.send_string(HEARTBEAT)
 
     def run(self):
@@ -52,10 +60,13 @@ def monitor_heartbeat(
         tolerance: How many heartbeats the host can miss before being declared dead.
     """
 
+    logger.info("Subscribed to %s:%s", host, port)
+    logger.info("Listening every %s", sleep_time)
+
     ctx = zmq.Context.instance()
     socket = ctx.socket(zmq.SUB)
     socket.setsockopt_string(zmq.SUBSCRIBE, "")
-    socket.setsockopt_string(zmq.RCVTIMEO, sleep_time)
+    socket.RCVTIMEO = sleep_time
     socket.connect(f"tcp://{host}:{port}")
 
     misses = 0
@@ -64,10 +75,13 @@ def monitor_heartbeat(
             heartbeat = socket.recv_string()
             if not heartbeat == HEARTBEAT:
                 raise ValueError(f"Expected heartbeat {HEARTBEAT}, got {heartbeat}")
+            logger.info("Heartbeat Ok")
         except zmq.error.ZMQError as e:
             if e.errno == zmq.EAGAIN:
                 misses += 1
+                logger.error("Miss %s / %s", misses, tolerance)
             else:
+                logger.error("Ouch", exc_info=True)
                 raise
         finally:
             if misses == tolerance:
@@ -80,7 +94,7 @@ class HeartbeatsListener(Process):
         self,
         hosts: List[Tuple[str, int]],
         error_callback: Callable,
-        sleep_time: int = cfg.lazarus.sleep_time(default=DEFAULT_SLEEP_TIME),
+        sleep_time: int = cfg.lazarus.sleep_time(default=DEFAULT_SLEEP_TIME, cast=int),
     ):
         """Monitor the heartbeats of hosts."""
         super().__init__()
@@ -92,7 +106,7 @@ class HeartbeatsListener(Process):
         listeners = [
             Process(
                 target=monitor_heartbeat,
-                args=(host, port, self.error_callback, self.sleep_time),
+                args=(host, port, self.error_callback, self.sleep_time * 1000),
             )
             for host, port in self.hosts
         ]
@@ -129,7 +143,7 @@ def monitor_ping(
 
     ctx = zmq.Context.instance()
     socket = ctx.socket(zmq.REQ)
-    socket.setsockopt_string(zmq.RCVTIMEO, sleep_time)
+    socket.zmq.RCVTIMEO = sleep_time
     socket.connect(f"tcp://{host}:{port}")
 
     misses = 0
