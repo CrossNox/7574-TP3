@@ -48,7 +48,7 @@ class LocalStorage(BaseStorage):
         autosync: bool = True,
     ):
         if topic not in self.data_files:
-            self.data_files[topic] = open(self.data_dir / f"{topic}.jsonl")
+            self.data_files[topic] = open(self.data_dir / f"{topic}.jsonl", "w")
 
         self.data_files[topic].write(
             json.dumps({"topic": topic, "key": key, "message": message})
