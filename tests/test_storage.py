@@ -50,3 +50,16 @@ def test_load_from_disk_single_topic(storage):
     new_storage = LocalStorage.load(storage.data_dir)
     assert new_storage.get("k1", topic="topic") == "v1"
     assert new_storage.get("k2", topic="topic") == "v2"
+
+
+def test_step_on_element(storage):
+    storage.put("k1", "v1")
+    storage.put("k1", "v2")
+    assert storage.get("k1") == "v2"
+
+
+def test_load_from_disk_step_on_keys(storage):
+    storage.put("k1", "v1", topic="topic")
+    storage.put("k1", "v2", topic="topic")
+    new_storage = LocalStorage.load(storage.data_dir)
+    assert new_storage.get("k1", topic="topic") == "v2"
