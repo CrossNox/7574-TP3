@@ -23,6 +23,10 @@ class LocalStorage(BaseStorage):
             file = file.replace(file.with_suffix(".jsonl.backup"))
             with open(file) as f:
                 for line in f:
+                    line = line.strip("\n")
+                    if line == "":
+                        continue
+                    print(line)
                     storage.put(**json.loads(line))
 
         return storage
@@ -53,6 +57,8 @@ class LocalStorage(BaseStorage):
         self.data_files[topic].write(
             json.dumps({"topic": topic, "key": key, "message": message})
         )
+        self.data_files[topic].write("\n")
+
         self.data[topic][key] = message
 
         if autosync:
