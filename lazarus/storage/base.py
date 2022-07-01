@@ -18,7 +18,7 @@ class BaseStorage(abc.ABC):
     def contains(self, key: KeyType, topic: Optional[TopicType] = None):
         pass
 
-    def __in__(self, key):
+    def __contains__(self, key):
         return self.contains(key)
 
     @abc.abstractmethod
