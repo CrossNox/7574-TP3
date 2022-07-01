@@ -83,7 +83,7 @@ def monitor_heartbeat(
                 misses += 1
                 logger.error("Miss %s / %s", misses, tolerance)
             else:
-                logger.error("Ouch", exc_info=True)
+                logger.error("Unhandled ZMQ error", exc_info=True)
                 raise
         finally:
             if misses == tolerance:
