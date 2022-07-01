@@ -38,7 +38,9 @@ class TyperLoggerHandler(logging.Handler):
         typer.secho(self.format(record), bg=bg, fg=fg)
 
 
-def config_logging(verbose: int = DEFAULT_VERBOSE, pretty: bool = DEFAULT_PRETTY):
+def config_logging(
+    verbose: int = DEFAULT_VERBOSE, pretty: bool = DEFAULT_PRETTY, module=None
+):
     """Configure logging for stream and file."""
 
     level = logging.ERROR
@@ -47,7 +49,8 @@ def config_logging(verbose: int = DEFAULT_VERBOSE, pretty: bool = DEFAULT_PRETTY
     elif verbose > 1:
         level = logging.DEBUG
 
-    logger = logging.getLogger()
+    logger = logging.getLogger(module)
+
     logger.setLevel(level)
 
     formatter = logging.Formatter(
