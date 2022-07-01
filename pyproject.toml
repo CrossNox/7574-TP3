@@ -35,7 +35,7 @@ line-length = 88
 
 [tool.mypy]
 ignore_missing_imports = true
-follow_imports = "skip"
+follow_imports = "normal"
 
 [tool.isort]
 line_length=88

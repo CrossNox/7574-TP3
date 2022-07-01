@@ -1,18 +1,19 @@
-from multiprocessing import Process
 import time
+from multiprocessing import Process
 from typing import List, Tuple, Callable
 
 import zmq
 
 from lazarus.cfg import cfg
+from lazarus.utils import get_logger
 from lazarus.constants import (
     PING,
+    EPSILON,
     HEARTBEAT,
     DEFAULT_PING_PORT,
     DEFAULT_SLEEP_TIME,
     DEFAULT_HEARTBEAT_PORT,
 )
-from lazarus.utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -56,8 +57,8 @@ def monitor_heartbeat(
         host: The hostname to monitor on.
         port: The port the host is binded to.
         error_callback: Callable receiving host and port on error.
-        sleep_time: Time between consecutive heartbeats.
-        tolerance: How many heartbeats the host can miss before being declared dead.
+        sleep_time: Milliseconds to sleep between consecutive heartbeats.
+        tolerance: How many heartbeats the host can miss before being declared gone.
     """
 
     logger.info("Subscribed to %s:%s", host, port)
@@ -66,7 +67,7 @@ def monitor_heartbeat(
     ctx = zmq.Context.instance()
     socket = ctx.socket(zmq.SUB)
     socket.setsockopt_string(zmq.SUBSCRIBE, "")
-    socket.RCVTIMEO = sleep_time
+    socket.RCVTIMEO = int(sleep_time * (1 + EPSILON))
     socket.connect(f"tcp://{host}:{port}")
 
     misses = 0
@@ -76,6 +77,7 @@ def monitor_heartbeat(
             if not heartbeat == HEARTBEAT:
                 raise ValueError(f"Expected heartbeat {HEARTBEAT}, got {heartbeat}")
             logger.info("Heartbeat Ok")
+            misses = 0
         except zmq.error.ZMQError as e:
             if e.errno == zmq.EAGAIN:
                 misses += 1
@@ -140,10 +142,17 @@ class PingReplier(Process):
 def monitor_ping(
     host: str, port: int, error_callback: Callable, sleep_time: int, tolerance: int = 3
 ):
+    """Monitor ping periodically for host.
 
+    Args:
+        host: the address of the the host to ping.
+        port: the port on which to ping the host.
+        error_callback: the callback after _tolerance_ failed pings.
+        sleep_time: milliseconds to sleep between pings. Epsilon added.
+    """
     ctx = zmq.Context.instance()
     socket = ctx.socket(zmq.REQ)
-    socket.zmq.RCVTIMEO = sleep_time
+    socket.RCVTIMEO = int(sleep_time * (1 + EPSILON))
     socket.connect(f"tcp://{host}:{port}")
 
     misses = 0
@@ -172,7 +181,13 @@ class PingMonitor(Process):
         error_callback: Callable,
         sleep_time: int = cfg.lazarus.sleep_time(default=DEFAULT_SLEEP_TIME),
     ):
-        """Periodically send pings to monitor health of hosts."""
+        """Periodically send pings to monitor health of hosts.
+
+        Args:
+            hosts: list of hosts to monitor.
+            error_callback: callback to handle missing nodes.
+            sleep_time: seconds to sleep between pings.
+        """
         super().__init__()
         self.hosts = hosts
         self.error_callback = error_callback
@@ -182,7 +197,7 @@ class PingMonitor(Process):
         listeners = [
             Process(
                 target=monitor_ping,
-                args=(host, port, self.error_callback, self.sleep_time),
+                args=(host, port, self.error_callback, self.sleep_time * 1000),
             )
             for host, port in self.hosts
         ]

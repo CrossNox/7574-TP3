@@ -7,7 +7,7 @@ logger = get_logger(__name__)
 
 
 def callback(host, port):
-    logger.info(f"host {host}:{port} is dead")
+    logger.info(f"host {host}:{port} is gone")
     time.sleep(1)
 
 
