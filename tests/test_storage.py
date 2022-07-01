@@ -22,3 +22,9 @@ def test_add_element(storage):
 def test_add_element_wtopic(storage):
     storage.put("k", "v", topic="topic")
     assert storage.get("k", topic="topic") == "v"
+
+
+def test_load_from_disk(storage):
+    storage.put("k", "v", topic="topic")
+    new_storage = LocalStorage.load(storage.data_dir)
+    assert new_storage.get("k", topic="topic") == "v"
