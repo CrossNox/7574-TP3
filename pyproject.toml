@@ -30,6 +30,7 @@ black = "^22.6.0"
 [tool.poetry.scripts]
 lazarus = "lazarus.cli.cli:app"
 virgilius = "lazarus.client.cli:app"
+mom_test = "tests.mom.app:main"
 
 [tool.black]
 line-length = 88

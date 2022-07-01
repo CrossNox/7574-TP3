@@ -1,0 +1,146 @@
+version: '3'
+services:
+  rabbitmq:
+    container_name: 'rabbitmq'
+    build:
+      context: ../../
+      dockerfile: rabbitmq/Dockerfile
+    networks:
+      - tp3_net
+    ports:
+      - 15672:15672
+    volumes:
+      - ./rabbitmq/config.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:15672"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  producer0:
+    container_name: 'producer0'
+    build:
+      context: ../../
+      dockerfile: tests/mom/Dockerfile
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - tp3_net
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ID=0
+      - APP_TYPE=producer
+
+  producer1:
+    container_name: 'producer1'
+    build:
+      context: ../../
+      dockerfile: tests/mom/Dockerfile
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - tp3_net
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ID=1
+      - APP_TYPE=producer
+
+  producer2:
+    container_name: 'producer2'
+    build:
+      context: ../../
+      dockerfile: tests/mom/Dockerfile
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - tp3_net
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ID=2
+      - APP_TYPE=producer
+
+  worker0:
+    container_name: 'worker0'
+    build:
+      context: ../../
+      dockerfile: tests/mom/Dockerfile
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - tp3_net
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ID=0
+      - APP_TYPE=worker
+
+  worker1:
+    container_name: 'worker1'
+    build:
+      context: ../../
+      dockerfile: tests/mom/Dockerfile
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - tp3_net
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ID=1
+      - APP_TYPE=worker
+
+  worker2:
+    container_name: 'worker2'
+    build:
+      context: ../../
+      dockerfile: tests/mom/Dockerfile
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - tp3_net
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ID=2
+      - APP_TYPE=worker
+
+  subscriber:
+    container_name: 'subscriber'
+    build:
+      context: ../../
+      dockerfile: tests/mom/Dockerfile
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - tp3_net
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ID=2
+      - APP_TYPE=subscriber
+
+  collector:
+    container_name: 'collector'
+    build:
+      context: ../../
+      dockerfile: tests/mom/Dockerfile
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - tp3_net
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ID=0
+      - APP_TYPE=collector
+
+networks:
+  tp3_net:
+    name: "tp3_net"
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.25.125.0/24
