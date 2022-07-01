@@ -1,4 +1,5 @@
 import time
+import argparse
 
 from lazarus.sidecar import HeartbeatsListener
 from lazarus.utils import get_logger, config_logging
@@ -12,6 +13,10 @@ def callback(host, port):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ports", nargs="+")
+    args = parser.parse_args()
+
     config_logging(verbose=2, pretty=True)
-    hbl = HeartbeatsListener([("localhost", 5555)], callback)
+    hbl = HeartbeatsListener([("localhost", port) for port in args.ports], callback)
     hbl.run()
