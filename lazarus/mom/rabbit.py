@@ -1,10 +1,15 @@
+import abc
 from enum import Enum
 from typing import Optional
 
 import pika
-from mom.message import Message
 
-from lazarus.utils import get_logger
+from lazarus.mom.message import Message
+from lazarus.utils import DEFAULT_PRETTY, DEFAULT_VERBOSE, get_logger, config_logging
+
+# Config pika's logger
+config_logging(DEFAULT_VERBOSE, DEFAULT_PRETTY, module=pika.__name__)
+
 
 logger = get_logger(__name__)
 
@@ -14,16 +19,19 @@ class ExchangeType(Enum):
     Fanout = "fanout"
 
 
-class RabbitConnection:
+class RabbitConnection(abc.ABC):
     def __init__(self, host: str):
         self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=host))
         self.channel = self.connection.channel()
         self.channel.confirm_delivery()
 
+    @abc.abstractmethod
     def close(self):
         """
         Should be called in order to properly close the connection and free all resources
         """
+
+    def _close(self):
         self.channel.close()
         self.connection.close()
 

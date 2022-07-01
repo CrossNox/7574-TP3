@@ -2,12 +2,8 @@ import abc
 from enum import Enum
 from typing import List
 
-from mom.message import Message
-
-from lazarus.utils import get_logger
+from lazarus.mom.message import Message
 from lazarus.mom.rabbit import ExchangeType, RabbitConnection
-
-logger = get_logger(__name__)
 
 
 class Exchange(RabbitConnection, abc.ABC):
@@ -32,6 +28,9 @@ class Exchange(RabbitConnection, abc.ABC):
         Broadcast given message to all suscribed queues.
         - msg is the Message to publish
         """
+
+    def close(self):
+        self._close()
 
 
 class BasicExchange(Exchange):
@@ -88,7 +87,7 @@ class WorkerExchange(Exchange):
         - consumers: a list of all the consumers where messages should be routed
         """
         super().__init__(host, exchange_name)
-        self.consumers: List[str]
+        self.consumers: List[str] = []
         self.count = 0
         self.n_workers = 0
 
@@ -112,8 +111,8 @@ class WorkerExchange(Exchange):
                 self._queue_bind(c.name, exchange_name, binding_key=self.ALL_MESSAGES)
 
     def push(self, msg: Message):
-        route = f"{self.count % self.n_workers}"
-        self._publish(msg, self.exchange_name, routing_key=route)
+        self._publish(msg, self.exchange_name, routing_key=f"{self.count}")
+        self.count = (self.count + 1) % self.n_workers
 
     def broadcast(self, msg: Message):
         self._publish(msg, self.exchange_name, routing_key=self.BROADCAST)
