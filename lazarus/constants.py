@@ -16,3 +16,6 @@ DEFAULT_HEARTBEAT_PORT: int = 8080
 DEFAULT_PING_PORT: int = 8080
 HEARTBEAT: str = "HEARTBEAT"
 PING: str = "PING"
+
+DOCKER_IMAGE_NAME: str = "7574-tp3:latest"
+DOCKER_NETWORK: str = "lazarus_net"
