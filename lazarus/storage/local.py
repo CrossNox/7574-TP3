@@ -4,7 +4,11 @@ from io import TextIOWrapper
 from typing import Dict, Optional
 from collections import defaultdict
 
+from lazarus.utils import get_logger
+from lazarus.exceptions import BadChecksumError
 from lazarus.storage.base import KeyType, TopicType, BaseStorage, MessageType
+
+logger = get_logger(__name__)
 
 
 class LocalStorage(BaseStorage):
@@ -24,10 +28,16 @@ class LocalStorage(BaseStorage):
             with open(file) as f:
                 for line in f:
                     line = line.strip("\n")
+
                     if line == "":
                         continue
-                    print(line)
-                    storage.put(**json.loads(line))
+
+                    json_line = json.loads(line)
+
+                    try:
+                        storage.put(**BaseStorage.validate_message(**json_line))
+                    except BadChecksumError:
+                        logger.error("Line %s does not match checksum", json_line)
 
         return storage
 
@@ -55,7 +65,12 @@ class LocalStorage(BaseStorage):
             self.data_files[topic] = open(self.data_dir / f"{topic}.jsonl", "w")
 
         self.data_files[topic].write(
-            json.dumps({"topic": topic, "key": key, "message": message})
+            json.dumps(
+                {
+                    **BaseStorage.payload(key, message, topic),
+                    "checksum": self.checksum(key, message, topic=topic),
+                }
+            )
         )
         self.data_files[topic].write("\n")
 
