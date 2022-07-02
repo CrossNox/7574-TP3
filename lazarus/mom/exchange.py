@@ -112,7 +112,8 @@ class WorkerExchange(Exchange):
 
     def push(self, msg: Message):
         self._publish(msg, self.exchange_name, routing_key=f"{self.count}")
-        self.count = (self.count + 1) % self.n_workers
+        if self.n_workers != 0:
+            self.count = (self.count + 1) % self.n_workers
 
     def broadcast(self, msg: Message):
         self._publish(msg, self.exchange_name, routing_key=self.BROADCAST)
