@@ -39,7 +39,8 @@ class HeartbeatReviverCallback:
         self.raw_containers = containers
 
     def __call__(self, host, port):
-        container = self.containers[host].revive()
+        # container = self.containers[host].revive()
+        print("revive me!")
 
 
 @app.command()

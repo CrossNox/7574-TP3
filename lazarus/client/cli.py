@@ -1,5 +1,4 @@
 import csv
-import json
 from pathlib import Path
 import multiprocessing as mp
 
@@ -7,6 +6,8 @@ import pika
 import typer
 
 from lazarus.constants import EOS
+from lazarus.mom.message import Message
+from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.utils import DEFAULT_PRETTY, DEFAULT_VERBOSE, get_logger, config_logging
 
 logger = get_logger(__name__)
@@ -14,40 +15,23 @@ logger = get_logger(__name__)
 app = typer.Typer()
 
 
-def relay_file(rabbit_host: str, file_path: Path, exchange: str):
-    conn = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host))
-    channel = conn.channel()
-    channel.exchange_declare(exchange="client", exchange_type="direct")
+def relay_file(
+    rabbit_host: str, exchange: str, file_path: Path, queue: str, _nworkers: int
+):
 
-    channel.confirm_delivery()
+    exch = WorkerExchange(
+        rabbit_host, exchange, [ConsumerConfig(queue, ConsumerType.Worker)]
+    )
 
     with open(file_path, newline="") as f:
         reader = csv.DictReader(f)
         for line in reader:
-            try:
-                channel.basic_publish(
-                    exchange="client",
-                    routing_key=exchange,
-                    body=json.dumps(line),
-                    properties=pika.BasicProperties(
-                        content_type="text/json",
-                        delivery_mode=pika.DeliveryMode.Transient,
-                    ),
-                )
-            except pika.exceptions.UnroutableError:
-                logger.error("Message could not be confirmed")
-        try:
-            channel.basic_publish(
-                exchange="client",
-                routing_key=exchange,
-                body=json.dumps(EOS),
-                properties=pika.BasicProperties(
-                    content_type="text/json",
-                    delivery_mode=pika.DeliveryMode.Transient,
-                ),
-            )
-        except pika.exceptions.UnroutableError:
-            logger.error("Message could not be confirmed")
+            msg = Message(data=line)
+            exch.push(msg)
+
+        exch.broadcast(EOS)
+
+    exch.close()
 
 
 @app.command()
@@ -55,10 +39,9 @@ def main(
     posts: Path = typer.Argument(..., help="Path to posts csv file"),
     comments: Path = typer.Argument(..., help="Path to comments csv file"),
     rabbit_host: str = typer.Argument(..., help="RabbitMQ address"),
-    posts_exchange: str = typer.Option("posts", help="Name of the posts exchange"),
-    comments_exchange: str = typer.Option(
-        "comments", help="Name of the comments exchange"
-    ),
+    posts_queue: str = typer.Option("posts", help="Name of the posts queue"),
+    comments_queue: str = typer.Option("comments", help="Name of the comments queue"),
+    nworkers: int = typer.Option(1, help="The amount of downstream workers"),
     verbose: int = typer.Option(
         DEFAULT_VERBOSE,
         "--verbose",
@@ -70,12 +53,20 @@ def main(
         DEFAULT_PRETTY, "--pretty", help="Whether to pretty print the logs with colors"
     ),
 ):
+    """Client entrypoint."""
     config_logging(verbose, pretty)
     logger.info("Starting processes")
 
-    pposts = mp.Process(target=relay_file, args=(rabbit_host, posts, posts_exchange))
+    posts_exchange = "posts-exchange"
+    comments_exchange = "comments-exchange"
+
+    pposts = mp.Process(
+        target=relay_file,
+        args=(rabbit_host, posts_exchange, posts, posts_queue, nworkers),
+    )
     pcomments = mp.Process(
-        target=relay_file, args=(rabbit_host, comments, comments_exchange)
+        target=relay_file,
+        args=(rabbit_host, comments_exchange, comments, comments_queue, nworkers),
     )
 
     logger.info("Starting posts relay process")
@@ -84,8 +75,8 @@ def main(
     logger.info("Starting comments relay process")
     pcomments.start()
 
-    logger.info("Joining posts relay process")
     pposts.join()
+    logger.info("Joined posts relay process")
 
-    logger.info("Joining comments relay process")
     pcomments.join()
+    logger.info("Joined comments relay process")

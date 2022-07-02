@@ -31,12 +31,19 @@ services:
       - lazarus_net
     volumes:
       - ./app/settings.ini:/settings.ini:ro
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
 
   client:
     image: 7574-tp3
     container_name: client
-    entrypoint: poetry run virgilius -vv
     networks:
       - lazarus_net
     volumes:
       - ./app/settings.ini:/settings.ini:ro
+      - ../data:/data:ro
+    entrypoint: poetry run virgilius /data/the-reddit-irl-dataset-posts.csv /data/the-reddit-irl-dataset-comments.csv rabbitmq -vv
+    depends_on:
+      rabbitmq:
+        condition: service_healthy

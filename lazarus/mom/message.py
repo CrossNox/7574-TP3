@@ -2,8 +2,8 @@ import json
 
 
 class Message:
-    def __init__(self):
-        self._data = {}
+    def __init__(self, data=None):
+        self._data = data or {}
 
     def __getitem__(self, key):
         return self._data[key]

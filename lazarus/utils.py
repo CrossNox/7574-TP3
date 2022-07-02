@@ -39,9 +39,7 @@ class TyperLoggerHandler(logging.Handler):
         typer.secho(self.format(record), bg=bg, fg=fg)
 
 
-def config_logging(
-    verbose: int = DEFAULT_VERBOSE, pretty: bool = DEFAULT_PRETTY
-):
+def config_logging(verbose: int = DEFAULT_VERBOSE, pretty: bool = DEFAULT_PRETTY):
     """Configure logging for stream and file."""
 
     level = logging.ERROR
