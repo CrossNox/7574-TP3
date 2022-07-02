@@ -6,6 +6,7 @@ import multiprocessing as mp
 import pika
 import typer
 
+from lazarus.constants import EOS
 from lazarus.utils import DEFAULT_PRETTY, DEFAULT_VERBOSE, get_logger, config_logging
 
 logger = get_logger(__name__)
@@ -39,7 +40,7 @@ def relay_file(rabbit_host: str, file_path: Path, exchange: str):
             channel.basic_publish(
                 exchange="client",
                 routing_key=exchange,
-                body="",
+                body=json.dumps(EOS),
                 properties=pika.BasicProperties(
                     content_type="text/json",
                     delivery_mode=pika.DeliveryMode.Transient,
