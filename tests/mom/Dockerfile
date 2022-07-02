@@ -1,6 +1,5 @@
 FROM python:3.8-slim
 RUN apt update
-RUN apt install -y graphviz
 RUN pip install poetry
 
 WORKDIR /app
