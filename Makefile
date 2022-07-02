@@ -5,12 +5,28 @@ GIT_REMOTE = github.com/CrossNox/7574-TP3
 DOCKER_BIN=docker
 DOCKER_COMPOSE_BIN=docker-compose
 
+export DOCKER_BUILDKIT = 1
+
 SAMPLE_SIZE := 0.01
 
-default: docker-image
+default: down up logs
+
+up: docker-image
+	docker-compose -f docker/docker-compose.yaml up --detach
+.PHONY: up
+
+logs:
+	docker-compose -f docker/docker-compose.yaml logs -f
+.PHONY: logs
+
+down:
+	docker-compose -f docker/docker-compose.yaml stop --timeout 1
+	docker-compose -f docker/docker-compose.yaml down --remove-orphans
+.PHONY: down
 
 docker-image:
 	$(DOCKER_BIN) build -f ./docker/Dockerfile -t "7574-tp3:latest" .
+	$(DOCKER_BIN) build -f ./rabbitmq/Dockerfile -t "rabbitmq:latest" .
 .PHONY: docker-image
 
 download-data:

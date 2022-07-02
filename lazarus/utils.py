@@ -4,6 +4,7 @@ import logging
 import pathlib
 from typing import Callable
 
+import pika
 import typer
 
 DEFAULT_PRETTY = False
@@ -48,6 +49,7 @@ def config_logging(verbose: int = DEFAULT_VERBOSE, pretty: bool = DEFAULT_PRETTY
         level = logging.DEBUG
 
     logger = logging.getLogger()
+
     logger.setLevel(level)
 
     formatter = logging.Formatter(
@@ -58,6 +60,9 @@ def config_logging(verbose: int = DEFAULT_VERBOSE, pretty: bool = DEFAULT_PRETTY
     typer_handler.setLevel(level)
     typer_handler.setFormatter(formatter)
     logger.addHandler(typer_handler)
+
+    pika_logger = logging.getLogger(pika.__name__)
+    pika_logger.setLevel(logging.ERROR)
 
 
 def get_logger(name: str):

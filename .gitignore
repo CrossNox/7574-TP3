@@ -146,8 +146,6 @@ _minted-informe/
 
 *.zip
 
-data
-
-settings.ini
+data/*.csv
 
 outputs

@@ -9,9 +9,44 @@ networks:
 services:
   rabbitmq:
     container_name: rabbitmq
-    image: rabbitmq:3.9.16-management-alpine
+    image: rabbitmq
     ports:
       - 15672:15672
       - 5672:5672
     networks:
       - lazarus_net
+    volumes:
+      - ../rabbitmq/config.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:15672"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  coordinator:
+    image: 7574-tp3
+    container_name: coordinator
+    command: coordinator
+    networks:
+      - lazarus_net
+    volumes:
+      - ../settings.ini:/app/settings.ini:ro
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  client:
+    image: 7574-tp3
+    container_name: client
+    networks:
+      - lazarus_net
+    volumes:
+      - ../settings.ini:/app/settings.ini:ro
+      - ../data:/data:ro
+    entrypoint: poetry run virgilius /data/the-reddit-irl-dataset-posts.csv /data/the-reddit-irl-dataset-comments.csv rabbitmq -vv
+    depends_on:
+      rabbitmq:
+        condition: service_healthy

@@ -9,4 +9,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     config_logging(verbose=2, pretty=True)
     hbs = HeartbeatSender(port=args.port)
-    hbs.run()
+    hbs.start()
+    hbs.join()

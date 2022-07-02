@@ -20,14 +20,16 @@ def revive(
     env["IDENTIFIER"] = identifier
     try:
         docker_client = docker.from_env()
-        _ = docker_client.containers.run(
+        container = docker_client.containers.run(
             image,
             name=identifier,
             command=command,
             detach=True,
             network=network,
             environment=env,
+            remove=True,
         )
+        return container
     except docker.errors.ImageNotFound:
         logger.error(
             "Image %s was not found, please check configuration", image, exc_info=True
@@ -43,12 +45,24 @@ class SystemContainer:
     command: Union[str, List[str]]
     identifier: str
 
+    def __post_init__(self):
+        self.container = None
+
     def revive(self):
-        revive(self.identifier, self.command)
+        self.container = revive(self.identifier, self.command)
+
+    def __del__(self):
+        self.container.remove()
 
     def heartbeat_callback(self, host: str, port: int):
         _, _ = host, port
         self.revive()
+
+    def __str__(self):
+        return f"SystemContainer {self.identifier} running {self.command}"
+
+    def __repr__(self):
+        return self.__str__()
 
 
 def list_containers_from_config() -> List[SystemContainer]:
@@ -59,4 +73,6 @@ def list_containers_from_config() -> List[SystemContainer]:
                 containers.append(
                     SystemContainer(v["command"], v["identifier"].format(id=i))
                 )
+    logger.info("Parsed %s system containers", len(containers))
+    logger.info("Parsed containers: %s", containers)
     return containers

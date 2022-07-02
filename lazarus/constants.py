@@ -1,5 +1,5 @@
 import pathlib
-from typing import Dict, List
+from typing import List
 
 KAGGLE_FOLDER = pathlib.Path.home() / ".kaggle"
 DATA_FOLDER = pathlib.Path(__name__).parent.parent / "data"
@@ -11,9 +11,9 @@ DEFAULT_SAMPLE_SIZE: float = 0.01
 ED_KWDS: List[str] = ["university", "college", "student", "teacher", "professor"]
 ED_KWDS_PATTERN: str = f'({"|".join(ED_KWDS)})'
 
-EOS: Dict = {"type": "EOS"}
+EOS: str = "EOS"
 
-DEFAULT_SLEEP_TIME: int = 10
+DEFAULT_SLEEP_TIME: int = 2
 DEFAULT_HEARTBEAT_PORT: int = 8080
 DEFAULT_PING_PORT: int = 8080
 HEARTBEAT: str = "HEARTBEAT"
