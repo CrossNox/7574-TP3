@@ -4,6 +4,7 @@ import typer
 
 from lazarus.nodes.node import Node
 from lazarus.utils import get_logger
+from lazarus.sidecar import HeartbeatSender
 from lazarus.tasks.transforms import (
     FilterColumn,
     ExtractPostID,
@@ -18,18 +19,27 @@ app = typer.Typer()
 
 @app.command()
 def extract_post_id():
+    heartbeat_sender = HeartbeatSender()
+    heartbeat_sender.start()
+
     node = Node(callback=ExtractPostID)
     node.start()
 
 
 @app.command()
 def posts_mean_sentiment():
+    heartbeat_sender = HeartbeatSender()
+    heartbeat_sender.start()
+
     node = Node(callback=PostsMeanSentiment)
     node.start()
 
 
 @app.command()
 def posts_mean_score():
+    heartbeat_sender = HeartbeatSender()
+    heartbeat_sender.start()
+
     node = Node(callback=PostsMeanScore)
     node.start()
 
@@ -38,5 +48,8 @@ def posts_mean_score():
 def filter_columns(
     columns: List[str] = typer.Argument(..., help="The list of columns to keep")
 ):
+    heartbeat_sender = HeartbeatSender()
+    heartbeat_sender.start()
+
     node = Node(callback=FilterColumn, columns=columns)
     node.start()
