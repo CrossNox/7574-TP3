@@ -6,13 +6,8 @@ from lazarus.mom.queue import Queue
 from lazarus.nodes.node import Node
 from lazarus.utils import get_logger
 from lazarus.sidecar import HeartbeatSender
+from lazarus.tasks.transforms import FilterColumn, PostsMeanScore
 from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
-from lazarus.tasks.transforms import (
-    FilterColumn,
-    ExtractPostID,
-    PostsMeanScore,
-    PostsMeanSentiment,
-)
 
 logger = get_logger(__name__)
 
