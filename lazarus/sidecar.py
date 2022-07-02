@@ -21,16 +21,23 @@ logger = get_logger(__name__)
 class HeartbeatSender(Process):
     def __init__(
         self,
-        sleep_time: int = cfg.lazarus.sleep_time(default=DEFAULT_SLEEP_TIME, cast=int),
-        port: int = cfg.lazarus.heartbeat_port(
-            default=DEFAULT_HEARTBEAT_PORT, cast=int
-        ),
+        sleep_time: int = cfg.lazarus.sleep_time(default=DEFAULT_SLEEP_TIME,
+                                                 cast=int),
+        port: int = cfg.lazarus.heartbeat_port(default=DEFAULT_HEARTBEAT_PORT,
+                                               cast=int),
     ):
         """Publish a heartbeat at regular intervals to notify you are still alive."""
         super().__init__()
         self.sleep_time = sleep_time
         self.port = port
 
+        self.socket: zmq.sugar.socket.Socket
+
+    def send_heartbeat(self):
+        logger.info("Sending heartbeat")
+        self.socket.send_string(HEARTBEAT)
+
+    def run(self):
         ctx = zmq.Context.instance()
 
         self.socket = ctx.socket(zmq.PUB)
@@ -38,19 +45,16 @@ class HeartbeatSender(Process):
 
         logger.info("Publishing heartbeats at %s", self.port)
 
-    def send_heartbeat(self):
-        logger.info("Sending heartbeat")
-        self.socket.send_string(HEARTBEAT)
-
-    def run(self):
         while True:
             time.sleep(self.sleep_time)
             self.send_heartbeat()
 
 
-def monitor_heartbeat(
-    host: str, port: int, error_callback: Callable, sleep_time: int, tolerance: int = 3
-):
+def monitor_heartbeat(host: str,
+                      port: int,
+                      error_callback: Callable,
+                      sleep_time: int,
+                      tolerance: int = 3):
     """Monitor the heartbeat of a host.
 
     Args:
@@ -75,13 +79,15 @@ def monitor_heartbeat(
         try:
             heartbeat = socket.recv_string()
             if not heartbeat == HEARTBEAT:
-                raise ValueError(f"Expected heartbeat {HEARTBEAT}, got {heartbeat}")
+                raise ValueError(
+                    f"Expected heartbeat {HEARTBEAT}, got {heartbeat}")
             logger.info("Heartbeat Ok")
             misses = 0
         except zmq.error.ZMQError as e:
             if e.errno == zmq.EAGAIN:
                 misses += 1
-                logger.error("Miss %s / %s", misses, tolerance)
+                logger.error("Miss %s / %s for %s:%s", misses, tolerance, host,
+                             port)
             else:
                 logger.error("Unhandled ZMQ error", exc_info=True)
                 raise
@@ -96,7 +102,8 @@ class HeartbeatsListener(Process):
         self,
         hosts: List[Tuple[str, int]],
         error_callback: Callable,
-        sleep_time: int = cfg.lazarus.sleep_time(default=DEFAULT_SLEEP_TIME, cast=int),
+        sleep_time: int = cfg.lazarus.sleep_time(default=DEFAULT_SLEEP_TIME,
+                                                 cast=int),
     ):
         """Monitor the heartbeats of hosts."""
         super().__init__()
@@ -109,16 +116,18 @@ class HeartbeatsListener(Process):
             Process(
                 target=monitor_heartbeat,
                 args=(host, port, self.error_callback, self.sleep_time * 1000),
-            )
-            for host, port in self.hosts
+            ) for host, port in self.hosts
         ]
         for p in listeners:
             p.start()
+        for p in listeners:
+            p.join()
         # TODO: catch KeyboardInterrupt and SIGTERM
 
 
 class PingReplier(Process):
-    def __init__(self, port: int = cfg.lazarus.ping_port(default=DEFAULT_PING_PORT)):
+    def __init__(self,
+                 port: int = cfg.lazarus.ping_port(default=DEFAULT_PING_PORT)):
         """Reply to pings to notify others that you are still alive."""
         super().__init__()
         self.port = port
@@ -139,9 +148,11 @@ class PingReplier(Process):
             self.reply_to_ping()
 
 
-def monitor_ping(
-    host: str, port: int, error_callback: Callable, sleep_time: int, tolerance: int = 3
-):
+def monitor_ping(host: str,
+                 port: int,
+                 error_callback: Callable,
+                 sleep_time: int,
+                 tolerance: int = 3):
     """Monitor ping periodically for host.
 
     Args:
@@ -198,8 +209,7 @@ class PingMonitor(Process):
             Process(
                 target=monitor_ping,
                 args=(host, port, self.error_callback, self.sleep_time * 1000),
-            )
-            for host, port in self.hosts
+            ) for host, port in self.hosts
         ]
         for p in listeners:
             p.start()

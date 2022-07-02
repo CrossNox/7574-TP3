@@ -14,9 +14,11 @@ def callback(host, port):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--ports", nargs="+")
+    parser.add_argument("--ports", nargs="+", type=int)
     args = parser.parse_args()
 
     config_logging(verbose=2, pretty=True)
-    hbl = HeartbeatsListener([("localhost", port) for port in args.ports], callback)
-    hbl.run()
+    hbl = HeartbeatsListener([("localhost", port) for port in args.ports],
+                             callback)
+    hbl.start()
+    hbl.join()
