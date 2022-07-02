@@ -48,7 +48,7 @@ class PostsMeanScore(Transform):
         self.n_posts_scores = 0
         self.total_posts_scores = 0
 
-    def handle_msg(self, msg):
+    def __call__(self, msg):
         self.n_posts_scores += 1
         self.total_posts_scores += float(msg["score"])
 
@@ -61,6 +61,6 @@ class FilterColumn(Transform):
         super().__init__(*args, **kwargs)
         self.columns = set(columns)
 
-    def handle_msg(self, msg):
+    def __call__(self, msg):
         msg = {k: v for k, v in msg.items() if k in self.columns}
         return msg

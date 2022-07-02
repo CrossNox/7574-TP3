@@ -11,6 +11,12 @@ class Message:
     def __setitem__(self, key, value):
         self._data[key] = value
 
+    def __str__(self):
+        return str(self._data)
+
+    def __repr__(self):
+        return f"Message with data {self._data}"
+
     # Check queue.py/consume if you are confused
     def ack(self):
         raise NotImplementedError("ack was called without an implementation")

@@ -2,6 +2,7 @@ from typing import List
 
 import typer
 
+from lazarus.cli.sink import app as sink_app
 from lazarus.sidecar import HeartbeatsListener
 from lazarus.cli.filter import app as filter_app
 from lazarus.cli.dataset import app as dataset_app
@@ -16,6 +17,7 @@ app = typer.Typer()
 app.add_typer(dataset_app, name="dataset")
 app.add_typer(filter_app, name="filter")
 app.add_typer(transform_app, name="transform")
+app.add_typer(sink_app, name="sink")
 
 
 @app.callback()
@@ -36,7 +38,7 @@ def main(
 
 class HeartbeatReviverCallback:
     def __init__(self, containers: List[SystemContainer]):
-        self.containers = {c.identifier: c.command for c in containers}
+        self.containers = {c.identifier: c for c in containers}
         self.raw_containers = containers
 
     def __call__(self, host, port):

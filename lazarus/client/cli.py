@@ -17,7 +17,7 @@ app = typer.Typer()
 def relay_file(
     rabbit_host: str, exchange: str, file_path: Path, queue: str, _nworkers: int
 ):
-
+    # TODO: get session id
     exch = WorkerExchange(
         rabbit_host, exchange, [ConsumerConfig(queue, ConsumerType.Worker)]
     )
@@ -25,10 +25,12 @@ def relay_file(
     with open(file_path, newline="") as f:
         reader = csv.DictReader(f)
         for line in reader:
-            msg = Message(data=line)
+            m = {"type": "data", "session_id": 1, "data": line}  # TODO: Hardcoded
+            msg = Message(data=m)
             exch.push(msg)
 
-        exch.broadcast(Message(data=EOS))
+        m = {"type": EOS, "session_id": 1}  # TODO: Hardcoded
+        exch.broadcast(Message(data=m))
 
     exch.close()
 

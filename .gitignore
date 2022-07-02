@@ -146,6 +146,6 @@ _minted-informe/
 
 *.zip
 
-data
+data/*.csv
 
 outputs

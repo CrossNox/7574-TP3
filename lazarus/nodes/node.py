@@ -1,9 +1,15 @@
 from multiprocessing import Process
-from typing import Dict, Type, TypeVar, Optional
+from typing import Dict, List, Type, TypeVar, Optional
 
 from lazarus.constants import EOS
-from lazarus.tasks.base import Task
 from lazarus.exceptions import IncorrectSessionId
+from lazarus.mom.exchange import Exchange
+from lazarus.mom.message import Message
+from lazarus.mom.queue import Queue
+from lazarus.tasks.base import Task
+from lazarus.utils import get_logger
+
+logger = get_logger(__name__)
 
 DependencyName = str
 Host = str
@@ -15,6 +21,8 @@ class Node(Process):
     def __init__(
         self,
         callback: Type[TaskCls],
+        queue_in: Queue,
+        exchanges_out: List[Exchange],
         dependencies: Optional[Dict[DependencyName, Host]] = None,
         **callback_kwargs,
     ):
@@ -22,6 +30,9 @@ class Node(Process):
         self.current_session_id: Optional[str] = None
         self.dependencies = self.wait_for_dependencies(dependencies or {})
         self.callback = callback(**self.dependencies, **callback_kwargs)
+        self.queue_in = queue_in
+        self.exchanges_out = exchanges_out
+        self.processed = 0
 
     def wait_for_dependencies(self, dependencies):
         solved_dependencies = {}
@@ -33,16 +44,23 @@ class Node(Process):
         # TODO: actually implement this
         return host
 
-    def get_new_message(self) -> Dict:
-        return {"type": "comment", "payload": "test"}
+    def put_new_message_out(self, message: Dict) -> None:
+        # TODO: decorate message with session id and type (data?)
+        for exchange in self.exchanges_out:
+            exchange.push(
+                Message(
+                    data={
+                        "type": "data",
+                        "data": message,
+                        "session_id": self.current_session_id,
+                    }
+                )
+            )
 
-    def put_new_message(self, message: Dict) -> None:
-        pass
+    def is_eos(self, message: Message) -> bool:
+        return message["type"] == EOS
 
-    def is_eos(self, message) -> bool:
-        return message == EOS
-
-    def check_session_id(self, message):
+    def check_session_id(self, message: Message):
         message_session_id = message["session_id"]
         if self.current_session_id is None:
             self.current_session_id = message_session_id
@@ -51,35 +69,47 @@ class Node(Process):
                 f"Session {message_session_id} is not valid. Currently serving {self.current_session_id}"
             )
 
-    def propagate_eos(self, eos_msg):
-        pass
+    def propagate_eos(self, _eos_msg):
+        for exchange in self.exchanges_out:
+            exchange.broadcast(
+                Message(data={"type": EOS, "session_id": self.current_session_id})
+            )
 
     def handle_eos(self, eos_msg):
-        self.current_session_id = None
         self.propagate_eos(eos_msg)
+        self.current_session_id = None
+        self.processed = 0
         collected_results = self.callback.collect()
-        for result in collected_results:
-            self.put_new_message(result)
+        for result in collected_results or []:
+            self.put_new_message_out(result)
 
-    def ack_mesage(self):
-        pass
+    def handle_new_message(self, message: Message):
+        try:
+            self.check_session_id(message)
 
+            if self.is_eos(message):
+                self.handle_eos(message)
+                return
+
+            message_out = self.callback(message["data"])
+
+            if message_out is not None:
+                self.put_new_message_out(message_out)
+
+            message.ack()
+        except IncorrectSessionId:
+            logger.info(
+                "Dropped message due to bad session id (%s vs %s)",
+                message["session_id"],
+                self.current_session_id,
+            )
+        except Exception:
+            logger.error("Unhandled exception with message %s", message, exc_info=True)
+        finally:
+            self.processed += 1
+            if self.processed != 0 and (self.processed % 100) == 0:
+                logger.info("Processed %s messages so far", self.processed)
+
+    # TODO: Handlear sigterm con un queue.close()
     def run(self):
-        while True:
-            try:
-                message_in = self.get_new_message()
-                self.check_session_id(message_in)
-
-                if self.is_eos(message_in):
-                    self.handle_eos(message_in)
-                    continue
-
-                message_out = self.callback(message_in)
-
-                if message_out is not None:
-                    self.put_new_message(message_out)
-                    self.ack_mesage()
-
-            except IncorrectSessionId:
-                # Drop message
-                pass
+        self.queue_in.consume(self.handle_new_message)
