@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lazarus"
-version = "0.1.1"
+version = "0.4.0"
 description = "High Availability Reddit Memes Analyzer, for fun (and passing Distribuidos I)."
 authors = ["CrossNox <imermet@fi.uba.ar>", "FdelMazo <fdelmazo@fi.uba.ar>", "JulianVentura <jventura@fi.uba.ar>"]
 
@@ -13,6 +13,7 @@ requests = "^2.27.1"
 types-requests = "^2.27.27"
 pika = "^1.2.1"
 docker = "^5.0.3"
+pyzmq = "^23.2.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.2"
@@ -23,6 +24,8 @@ flake8 = "^4.0.1"
 kaggle = "^1.5.12"
 pandas = "^1.4.2"
 pycln = "^1.3.3"
+pylint = "^2.14.4"
+black = "^22.6.0"
 
 [tool.poetry.scripts]
 lazarus = "lazarus.cli.cli:app"
@@ -33,7 +36,7 @@ line-length = 88
 
 [tool.mypy]
 ignore_missing_imports = true
-follow_imports = "skip"
+follow_imports = "normal"
 
 [tool.isort]
 line_length=88
