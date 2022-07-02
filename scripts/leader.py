@@ -18,7 +18,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config_logging(verbose=2, pretty=True)
-    hbl = HeartbeatsListener([("localhost", port) for port in args.ports],
-                             callback)
+    hbl = HeartbeatsListener([("localhost", port) for port in args.ports], callback)
     hbl.start()
     hbl.join()

@@ -2,7 +2,6 @@ import csv
 from pathlib import Path
 import multiprocessing as mp
 
-import pika
 import typer
 
 from lazarus.constants import EOS
@@ -29,7 +28,7 @@ def relay_file(
             msg = Message(data=line)
             exch.push(msg)
 
-        exch.broadcast(EOS)
+        exch.broadcast(Message(data=EOS))
 
     exch.close()
 

@@ -5,8 +5,9 @@ import typer
 from lazarus.sidecar import HeartbeatsListener
 from lazarus.cli.filter import app as filter_app
 from lazarus.cli.dataset import app as dataset_app
+from lazarus.constants import DEFAULT_HEARTBEAT_PORT
 from lazarus.cli.transform import app as transform_app
-from lazarus.docker_utils import SystemContainer, revive, list_containers_from_config
+from lazarus.docker_utils import SystemContainer, list_containers_from_config
 from lazarus.utils import DEFAULT_PRETTY, DEFAULT_VERBOSE, get_logger, config_logging
 
 logger = get_logger(__name__)
@@ -39,8 +40,7 @@ class HeartbeatReviverCallback:
         self.raw_containers = containers
 
     def __call__(self, host, port):
-        # container = self.containers[host].revive()
-        print("revive me!")
+        self.containers[host].revive()
 
 
 @app.command()
@@ -48,9 +48,11 @@ def coordinator():
     containers = list_containers_from_config()
     callback = HeartbeatReviverCallback(containers)
 
-    # hbl = HeartbeatsListener([(container.identifier, DEFAULT_HEARTBEAT_PORT)
-    #                           for container in containers], callback)
-    hbl = HeartbeatsListener([("localhost", 5555)], callback)
+    hbl = HeartbeatsListener(
+        [(container.identifier, DEFAULT_HEARTBEAT_PORT) for container in containers],
+        callback,
+    )
+    # hbl = HeartbeatsListener([("localhost", 5555)], callback)
 
     hbl.start()
     hbl.join()
