@@ -8,8 +8,7 @@ from lazarus.mom.message import Message
 from lazarus.utils import DEFAULT_PRETTY, DEFAULT_VERBOSE, get_logger, config_logging
 
 # Config pika's logger
-config_logging(DEFAULT_VERBOSE, DEFAULT_PRETTY, module=pika.__name__)
-
+config_logging(DEFAULT_VERBOSE, DEFAULT_PRETTY)
 
 logger = get_logger(__name__)
 

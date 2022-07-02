@@ -4,6 +4,7 @@ import logging
 import pathlib
 from typing import Callable
 
+import pika
 import typer
 
 DEFAULT_PRETTY = False
@@ -39,7 +40,7 @@ class TyperLoggerHandler(logging.Handler):
 
 
 def config_logging(
-    verbose: int = DEFAULT_VERBOSE, pretty: bool = DEFAULT_PRETTY, module=None
+    verbose: int = DEFAULT_VERBOSE, pretty: bool = DEFAULT_PRETTY
 ):
     """Configure logging for stream and file."""
 
@@ -49,7 +50,7 @@ def config_logging(
     elif verbose > 1:
         level = logging.DEBUG
 
-    logger = logging.getLogger(module)
+    logger = logging.getLogger()
 
     logger.setLevel(level)
 
@@ -61,6 +62,9 @@ def config_logging(
     typer_handler.setLevel(level)
     typer_handler.setFormatter(formatter)
     logger.addHandler(typer_handler)
+
+    pika_logger = logging.getLogger(pika.__name__)
+    pika_logger.setLevel(logging.ERROR)
 
 
 def get_logger(name: str):
