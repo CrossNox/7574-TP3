@@ -77,11 +77,12 @@ class Node(Process):
 
     def handle_eos(self, eos_msg):
         self.propagate_eos(eos_msg)
-        self.current_session_id = None
         self.processed = 0
         collected_results = self.callback.collect()
         for result in collected_results or []:
             self.put_new_message_out(result)
+        self.current_session_id = None
+        eos_msg.ack()
 
     def handle_new_message(self, message: Message):
         try:
