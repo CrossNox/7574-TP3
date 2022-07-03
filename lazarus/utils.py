@@ -4,8 +4,9 @@ import logging
 import pathlib
 from typing import Callable
 
-import pika
 import typer
+
+import pika
 
 DEFAULT_PRETTY = False
 
@@ -102,3 +103,16 @@ def coalesce(f: Callable) -> Callable:
             return None
 
     return _inner
+
+
+def exchange_name(group_id: str, output_group_id: str):
+    return f"{group_id}::{output_group_id}"
+
+
+def parse_group(group: str):
+    group, size = group.split(":")
+    return group, int(size)
+
+
+def queue_in_name(input_group_id: str, group_id: str, node_id: str):
+    return f"{input_group_id}::{group_id}_{node_id}"

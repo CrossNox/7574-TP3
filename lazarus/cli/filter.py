@@ -2,12 +2,12 @@ from typing import List
 
 import typer
 
+from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.mom.queue import Queue
 from lazarus.nodes.node import Node
-from lazarus.utils import get_logger
 from lazarus.sidecar import HeartbeatSender
 from lazarus.tasks.filters import FilterPostsScoreAboveMean
-from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
+from lazarus.utils import get_logger, parse_group, exchange_name, queue_in_name
 
 logger = get_logger(__name__)
 
@@ -26,35 +26,41 @@ app = typer.Typer()
 @app.command()
 def posts_score_above_mean(
     node_id: int = typer.Argument(..., help="The node id"),
-    group_id: int = typer.Argument(..., help="The id of the consumer group"),
-    mean_queue: str = typer.Argument(..., help="Queue where to fetch mean from"),
-    input_queue: str = typer.Argument(..., help="Name of the input queue"),
-    output_exchange: str = typer.Option(
-        "posts_score_above_mean", help="The output exchange"
+    group_id: str = typer.Option(
+        "posts_score_above_mean", help="The id of the consumer group"
     ),
-    producers: int = typer.Option(1, help="How many producers to listen from"),
-    subscribers: List[int] = typer.Option(
-        [1], help="Amount of subscribers in each group of subscribers"
+    mean_queue: str = typer.Argument(..., help="Queue where to fetch mean from"),
+    input_group: str = typer.Argument(
+        ..., help="<name>:<n_producers> of the input group"
+    ),
+    output_groups: List[str] = typer.Argument(
+        ..., help="<name>:<n_subscribers> of the output groups"
     ),
     rabbit_host: str = typer.Option("rabbitmq", help="The address for rabbitmq"),
 ):
     heartbeat_sender = HeartbeatSender()
     heartbeat_sender.start()
 
-    queue_in = Queue(rabbit_host, f"{input_queue}-group_{group_id}-id_{node_id}")
+    input_group_id, input_group_size = parse_group(input_group)
+
+    output_groups = [parse_group(group) for group in output_groups]
+
+    queue_in = Queue(rabbit_host, queue_in_name(input_group_id, group_id, node_id))
     exchanges_out = [
         WorkerExchange(
             rabbit_host,
-            f"{output_exchange}_{idx}",
+            exchange_name(group_id, output_group_id),
             consumers=[
                 ConsumerConfig(
-                    f"{output_exchange}-group_{idx}-id_{j}",
-                    ConsumerType.Worker if i > 1 else ConsumerType.Subscriber,
+                    queue_in_name(group_id, output_group_id, j),
+                    ConsumerType.Worker
+                    if output_group_size > 1
+                    else ConsumerType.Subscriber,
                 )
-                for j in range(i)
+                for j in range(output_group_size)
             ],
         )
-        for idx, i in enumerate(subscribers)
+        for output_group_id, output_group_size in output_groups
     ]
 
     node = Node(
@@ -62,7 +68,7 @@ def posts_score_above_mean(
         queue_in=queue_in,
         exchanges_out=exchanges_out,
         dependencies={"posts_mean_score": Queue(rabbit_host, mean_queue)},
-        producers=producers,
+        producers=input_group_size,
     )
     node.start()
 

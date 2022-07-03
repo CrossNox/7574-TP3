@@ -2,9 +2,10 @@ from dataclasses import dataclass
 from typing import Dict, List, Union, Optional
 
 import docker
+
 from lazarus.cfg import cfg
-from lazarus.utils import get_logger
 from lazarus.constants import DOCKER_NETWORK, DOCKER_IMAGE_NAME
+from lazarus.utils import get_logger, queue_in_name
 
 logger = get_logger(__name__)
 
@@ -52,7 +53,8 @@ class SystemContainer:
         self.container = revive(self.identifier, self.command)
 
     def __del__(self):
-        self.container.remove()
+        if self.container:
+            self.container.remove()
 
     def heartbeat_callback(self, host: str, port: int):
         _, _ = host, port
@@ -67,14 +69,48 @@ class SystemContainer:
 
 def list_containers_from_config() -> List[SystemContainer]:
     containers = []
-    for k, v in cfg.to_dict().items():
-        if "container" in k:
-            for i in range(int(v["replicas"])):
-                containers.append(
-                    SystemContainer(
-                        v["command"].format(id=i), v["identifier"].format(id=i)
-                    )
+    config = cfg.to_dict()
+
+    for k, v in config.items():
+        if k.startswith("group"):
+            group_id = k[len("group_") :]
+            n_replicas = int(v["replicas"])
+
+            input_group = v["input_group"]
+            input_group_size: int
+            if input_group == "client":
+                input_group_size = 1
+                input_group = v["input_queue"]
+            else:
+                input_group_size = int(config[f"group_{input_group}"]["replicas"])
+
+            input_group_arg = f"{input_group}:{input_group_size}"
+
+            output_groups = [x for x in v["output_groups"].split(" ") if x != ""]
+            output_groups_sizes = (
+                []
+                if len(output_groups) == 0
+                else [config[f"group_{g}"]["replicas"] for g in output_groups]
+            )
+            output_groups_arg = " ".join(
+                ":".join(x) for x in zip(output_groups, output_groups_sizes)
+            )
+
+            if v["dummy_out"]:
+                output_groups.append("dummy")
+                output_groups_sizes.append(1)
+
+            command = f"{v['command']} {v['subcommand']}"
+
+            for i in range(n_replicas):
+                depends_on = " ".join(
+                    queue_in_name(arg, group_id, i)
+                    for arg in v["depends_on"].split(" ")
+                    if arg != ""
                 )
+                container_command = f"{command} {i} {v['args']} {depends_on} {input_group_arg} {output_groups_arg} --group-id {group_id}"
+                containers.append(SystemContainer(container_command, f"{group_id}_{i}"))
+
     logger.info("Parsed %s system containers", len(containers))
     logger.info("Parsed containers: %s", containers)
     return containers
