@@ -2,12 +2,12 @@ from multiprocessing import Process
 from typing import Dict, Type, TypeVar, Optional, Sequence
 
 from lazarus.constants import EOS
-from lazarus.exceptions import IncorrectSessionId
-from lazarus.mom.exchange import Exchange
-from lazarus.mom.message import Message
 from lazarus.mom.queue import Queue
 from lazarus.tasks.base import Task
 from lazarus.utils import get_logger
+from lazarus.mom.message import Message
+from lazarus.mom.exchange import Exchange
+from lazarus.exceptions import IncorrectSessionId
 
 logger = get_logger(__name__)
 
