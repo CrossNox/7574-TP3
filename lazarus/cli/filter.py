@@ -45,7 +45,7 @@ def posts_score_above_mean(
     exchanges_out = [
         WorkerExchange(
             rabbit_host,
-            output_exchange,
+            f"{output_exchange}_{idx}",
             consumers=[
                 ConsumerConfig(
                     f"{output_exchange}-group_{idx}-id_{j}",

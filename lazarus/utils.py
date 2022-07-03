@@ -4,8 +4,9 @@ import logging
 import pathlib
 from typing import Callable
 
-import pika
 import typer
+
+import pika
 
 DEFAULT_PRETTY = False
 

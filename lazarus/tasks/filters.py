@@ -18,7 +18,6 @@ class FilterPostsScoreAboveMean(Filter):
         self.mean = posts_mean_score
 
     def __call__(self, message):
-        logger.info("Filter posts score above mean: %s", message)
         msg_score = float(message["score"])  # TODO: WHY is this a string
         if msg_score >= self.mean:
             return message

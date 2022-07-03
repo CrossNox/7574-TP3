@@ -2,13 +2,9 @@ import abc
 from enum import Enum
 from typing import Optional
 
-import pika
-
 from lazarus.mom.message import Message
 from lazarus.utils import DEFAULT_PRETTY, DEFAULT_VERBOSE, get_logger, config_logging
-
-# Config pika's logger
-config_logging(DEFAULT_VERBOSE, DEFAULT_PRETTY)
+import pika
 
 logger = get_logger(__name__)
 

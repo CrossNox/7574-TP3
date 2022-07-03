@@ -49,23 +49,20 @@ class Node(Process):
         done_event = threading.Event()
 
         class DummyCallback:
-            def __init__(self, done, key, nproducers):
+            def __init__(self, done, key):
                 self.result = None
                 self.key = key
                 self.done = done
-                self.missing_eos = nproducers
 
             def __call__(self, message):
                 logger.error("Dependency callback :: message %s", message)
                 if message["type"] != EOS:
                     self.result = message["data"][self.key]
                 else:
-                    self.missing_eos -= 1
-                    if self.missing_eos == 0:
-                        self.done.set()
+                    self.done.set()
                 message.ack()
 
-        _callback = DummyCallback(done_event, key, self.producers)
+        _callback = DummyCallback(done_event, key)
 
         queue.consume(_callback)
         done_event.wait()
@@ -99,6 +96,7 @@ class Node(Process):
             )
 
     def propagate_eos(self):
+        logger.info("Propagating EOS")
         for exchange in self.exchanges_out:
             exchange.broadcast(
                 Message(data={"type": EOS, "session_id": self.current_session_id})
@@ -112,11 +110,11 @@ class Node(Process):
             self.processed = 0
             collected_results = self.callback.collect() or []
             logger.info("Collected %s results", len(collected_results))
+
             for result in collected_results:
                 self.put_new_message_out(result)
 
-            for _ in range(self.n_eos):
-                self.propagate_eos()
+            self.propagate_eos()
 
             self.current_session_id = None
             self.n_eos = 0
