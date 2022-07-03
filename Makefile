@@ -20,6 +20,8 @@ logs:
 .PHONY: logs
 
 down:
+	@# Remove any lingering container connected to lazarus_net
+	docker network inspect --format '{{range $$v := .Containers}}{{printf "%s\n" $$v.Name}}{{end}}' "lazarus_net" | xargs --no-run-if-empty docker stop
 	docker-compose -f docker/docker-compose.yaml stop --timeout 1
 	docker-compose -f docker/docker-compose.yaml down --remove-orphans
 .PHONY: down
