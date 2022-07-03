@@ -87,6 +87,7 @@ def filter_columns(
     heartbeat_sender = HeartbeatSender()
     heartbeat_sender.start()
 
+    logger.info("Reading from %s", f"{input_queue}-group_{group_id}-id_{node_id}")
     queue_in = Queue(rabbit_host, f"{input_queue}-group_{group_id}-id_{node_id}")
     exchanges_out = [
         WorkerExchange(

@@ -82,6 +82,7 @@ class Node(Process):
         self.propagate_eos(eos_msg)
         self.n_eos += 1
 
+        logger.info("Received %s/%s EOS", self.n_eos, self.producers)
         if self.n_eos == self.producers:
             self.processed = 0
             collected_results = self.callback.collect() or []
