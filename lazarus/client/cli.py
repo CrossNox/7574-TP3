@@ -1,7 +1,7 @@
 import csv
 import multiprocessing as mp
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import typer
 
@@ -56,20 +56,21 @@ def relay_file(
         for exch in exchanges:
             exch.broadcast(Message(data=m))
 
-    exch.close()
+    for exch in exchanges:
+        exch.close()
 
 
 @app.command()
 def main(
     posts: Path = typer.Argument(..., help="Path to posts csv file"),
     comments: Path = typer.Argument(..., help="Path to comments csv file"),
-    rabbit_host: str = typer.Argument(..., help="RabbitMQ address"),
     posts_exchange: str = typer.Option("posts", help="Name of the posts exchange"),
     comments_exchange: str = typer.Option(
         "comments", help="Name of the comments exchange"
     ),
-    comments_groups: List[str] = typer.Option(..., help="<group_id>:<n>"),
-    posts_groups: List[str] = typer.Option(..., help="<group_id>:<n>"),
+    comments_groups: Optional[List[str]] = typer.Option(None, help="<group_id>:<n>"),
+    posts_groups: Optional[List[str]] = typer.Option(None, help="<group_id>:<n>"),
+    rabbit_host: str = typer.Option("rabbitmq", help="RabbitMQ address"),
     verbose: int = typer.Option(
         DEFAULT_VERBOSE,
         "--verbose",
@@ -87,11 +88,17 @@ def main(
 
     pposts = mp.Process(
         target=relay_file,
-        args=(rabbit_host, posts_exchange, posts, "posts", posts_groups),
+        args=(rabbit_host, posts_exchange, posts, "posts", posts_groups or []),
     )
     pcomments = mp.Process(
         target=relay_file,
-        args=(rabbit_host, comments_exchange, comments, "comments", comments_groups),
+        args=(
+            rabbit_host,
+            comments_exchange,
+            comments,
+            "comments",
+            comments_groups or [],
+        ),
     )
 
     logger.info("Starting posts relay process")

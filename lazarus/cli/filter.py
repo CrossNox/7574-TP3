@@ -30,10 +30,10 @@ def posts_score_above_mean(
         "posts_score_above_mean", help="The id of the consumer group"
     ),
     mean_queue: str = typer.Argument(..., help="Queue where to fetch mean from"),
-    input_group: str = typer.Argument(
+    input_group: str = typer.Option(
         ..., help="<name>:<n_producers> of the input group"
     ),
-    output_groups: List[str] = typer.Argument(
+    output_groups: List[str] = typer.Option(
         ..., help="<name>:<n_subscribers> of the output groups"
     ),
     rabbit_host: str = typer.Option("rabbitmq", help="The address for rabbitmq"),

@@ -84,7 +84,7 @@ def list_containers_from_config() -> List[SystemContainer]:
             else:
                 input_group_size = int(config[f"group_{input_group}"]["replicas"])
 
-            input_group_arg = f"{input_group}:{input_group_size}"
+            input_group_arg = f"--input-group {input_group}:{input_group_size}"
 
             output_groups = [x for x in v["output_groups"].split(" ") if x != ""]
             output_groups_sizes = (
@@ -92,13 +92,14 @@ def list_containers_from_config() -> List[SystemContainer]:
                 if len(output_groups) == 0
                 else [config[f"group_{g}"]["replicas"] for g in output_groups]
             )
-            output_groups_arg = " ".join(
-                ":".join(x) for x in zip(output_groups, output_groups_sizes)
-            )
-
-            if v["dummy_out"]:
+            if int(v["dummy_out"]):
                 output_groups.append("dummy")
-                output_groups_sizes.append(1)
+                output_groups_sizes.append("1")
+
+            output_groups_arg = " ".join(
+                f"--output-groups {':'.join(x)}"
+                for x in zip(output_groups, output_groups_sizes)
+            )
 
             command = f"{v['command']} {v['subcommand']}"
 
