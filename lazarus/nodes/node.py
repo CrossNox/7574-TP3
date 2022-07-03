@@ -23,6 +23,7 @@ class Node(Process):
         callback: Type[TaskCls],
         queue_in: Queue,
         exchanges_out: Sequence[Exchange],
+        producers: int = 1,
         dependencies: Optional[Dict[DependencyName, Host]] = None,
         **callback_kwargs,
     ):
@@ -30,6 +31,8 @@ class Node(Process):
         self.current_session_id: Optional[str] = None
         self.dependencies = self.wait_for_dependencies(dependencies or {})
         self.callback = callback(**self.dependencies, **callback_kwargs)
+        self.producers = producers
+        self.n_eos = 0
         self.queue_in = queue_in
         self.exchanges_out = exchanges_out
         self.processed = 0
@@ -77,11 +80,18 @@ class Node(Process):
 
     def handle_eos(self, eos_msg):
         self.propagate_eos(eos_msg)
-        self.processed = 0
-        collected_results = self.callback.collect()
-        for result in collected_results or []:
-            self.put_new_message_out(result)
-        self.current_session_id = None
+        self.n_eos += 1
+
+        logger.info("Received %s/%s EOS", self.n_eos, self.producers)
+        if self.n_eos == self.producers:
+            self.processed = 0
+            collected_results = self.callback.collect() or []
+            logger.info("Collected %s results", len(collected_results))
+            for result in collected_results:
+                self.put_new_message_out(result)
+            self.current_session_id = None
+            self.n_eos = 0
+
         eos_msg.ack()
 
     def handle_new_message(self, message: Message):

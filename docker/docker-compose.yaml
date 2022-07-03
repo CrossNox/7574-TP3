@@ -46,7 +46,7 @@ services:
     volumes:
       - ../settings.ini:/app/settings.ini:ro
       - ../data:/data:ro
-    entrypoint: poetry run virgilius /data/the-reddit-irl-dataset-posts.csv /data/the-reddit-irl-dataset-comments.csv rabbitmq -vv
+    entrypoint: poetry run virgilius /data/the-reddit-irl-dataset-posts.csv /data/the-reddit-irl-dataset-comments.csv rabbitmq -vv --consumers 5
     depends_on:
       rabbitmq:
         condition: service_healthy

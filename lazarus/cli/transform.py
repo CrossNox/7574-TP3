@@ -34,51 +34,71 @@ app = typer.Typer()
 
 @app.command()
 def posts_mean_score(
+    node_id: int = typer.Argument(..., help="The node id"),
+    group_id: int = typer.Argument(..., help="The id of the consumer group"),
+    input_queue: str = typer.Argument(..., help="Name of the posts queue"),
+    output_exchange: str = typer.Option("posts_mean_score", help="The output exchange"),
+    producers: int = typer.Option(1, help="How many producers to listen from"),
+    subscribers: List[int] = typer.Option(
+        [1], help="Amount of subscribers in each group of subscribers"
+    ),
     rabbit_host: str = typer.Option("rabbitmq", help="The address for rabbitmq"),
-    input_queue: str = typer.Option("post-averager", help="Name of the posts queue"),
 ):
     heartbeat_sender = HeartbeatSender()
     heartbeat_sender.start()
 
-    queue_in = Queue(rabbit_host, input_queue)
-    exchange_name = (
-        "post-averager-exchange"  # This can be hardcoded, maybe constants.py
-    )
+    queue_in = Queue(rabbit_host, f"{input_queue}-group_{group_id}-id_{node_id}")
     exchanges_out = [
         WorkerExchange(
             rabbit_host,
-            exchange_name,
+            output_exchange,
             consumers=[
                 ConsumerConfig(
-                    "post-averager-result", ConsumerType.Subscriber
-                )  # TODO: Check
+                    f"{output_exchange}-group_{idx}-id_{j}", ConsumerType.Subscriber
+                )
+                for idx, i in enumerate(subscribers)
+                for j in range(i)
             ],
         )
     ]
 
-    node = Node(callback=PostsMeanScore, queue_in=queue_in, exchanges_out=exchanges_out)
+    node = Node(
+        callback=PostsMeanScore,
+        queue_in=queue_in,
+        exchanges_out=exchanges_out,
+        producers=producers,
+    )
     node.start()
 
 
 @app.command()
 def filter_columns(
+    node_id: int = typer.Argument(..., help="The node id"),
+    group_id: int = typer.Argument(..., help="The id of the consumer group"),
     columns: List[str] = typer.Argument(..., help="The list of columns to keep"),
+    input_queue: str = typer.Argument(..., help="Name of the input queue"),
+    output_exchange: str = typer.Option("filter_columns", help="The output exchange"),
+    producers: int = typer.Option(1, help="How many producers to listen from"),
+    subscribers: List[int] = typer.Option(
+        [1], help="Amount of subscribers in each group of subscribers"
+    ),
     rabbit_host: str = typer.Option("rabbitmq", help="The address for rabbitmq"),
-    posts_queue: str = typer.Option("posts", help="Name of the posts queue"),
 ):
     heartbeat_sender = HeartbeatSender()
     heartbeat_sender.start()
 
-    queue_in = Queue(rabbit_host, posts_queue)
-    exchange_name = (
-        "post-transform-exchange"  # This can be hardcoded, maybe constants.py
-    )
+    logger.info("Reading from %s", f"{input_queue}-group_{group_id}-id_{node_id}")
+    queue_in = Queue(rabbit_host, f"{input_queue}-group_{group_id}-id_{node_id}")
     exchanges_out = [
         WorkerExchange(
             rabbit_host,
-            exchange_name,
+            output_exchange,
             consumers=[
-                ConsumerConfig("post-averager", ConsumerType.Subscriber)  # TODO: Check
+                ConsumerConfig(
+                    f"{output_exchange}-group_{idx}-id_{j}", ConsumerType.Subscriber
+                )
+                for idx, i in enumerate(subscribers)
+                for j in range(i)
             ],
         )
     ]
@@ -88,5 +108,6 @@ def filter_columns(
         columns=columns,
         queue_in=queue_in,
         exchanges_out=exchanges_out,
+        producers=producers,
     )
     node.start()

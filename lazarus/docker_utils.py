@@ -71,7 +71,9 @@ def list_containers_from_config() -> List[SystemContainer]:
         if "container" in k:
             for i in range(int(v["replicas"])):
                 containers.append(
-                    SystemContainer(v["command"], v["identifier"].format(id=i))
+                    SystemContainer(
+                        v["command"].format(id=i), v["identifier"].format(id=i)
+                    )
                 )
     logger.info("Parsed %s system containers", len(containers))
     logger.info("Parsed containers: %s", containers)
