@@ -2,12 +2,12 @@ from typing import List
 
 import typer
 
-from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.mom.queue import Queue
 from lazarus.nodes.node import Node
+from lazarus.utils import get_logger
 from lazarus.sidecar import HeartbeatSender
 from lazarus.tasks.filters import FilterPostsScoreAboveMean
-from lazarus.utils import get_logger
+from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 
 logger = get_logger(__name__)
 

@@ -1,8 +1,8 @@
 import re
 
-from lazarus.constants import ED_KWDS_PATTERN
 from lazarus.tasks.base import Task
 from lazarus.utils import get_logger
+from lazarus.constants import ED_KWDS_PATTERN
 
 logger = get_logger(__name__)
 
