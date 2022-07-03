@@ -13,7 +13,11 @@ class Transform(Task):
         return None
 
 
-class ExtractPostID(Transform):
+class CommentFilter(Transform):
+    def __init__(self, columns: List[str], *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.columns = set(columns)
+
     def __call__(self, msg):
         msg_id = re.match(
             r"https://old.reddit.com/r/me_?irl/comments/([^/]+)/.*", msg["permalink"]
@@ -22,8 +26,8 @@ class ExtractPostID(Transform):
             logger.error("Bad permalink %s", msg["permalink"])
             return
         msg["id"] = msg_id[0]
+        msg = {k: v for k, v in msg.items() if k in self.columns}
         return msg
-
 
 class PostsMeanSentiment(Transform):
     def __init__(self):
