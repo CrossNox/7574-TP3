@@ -2,9 +2,10 @@ from dataclasses import dataclass
 from typing import Dict, List, Union, Optional
 
 import docker
+
 from lazarus.cfg import cfg
-from lazarus.utils import get_logger
 from lazarus.constants import DOCKER_NETWORK, DOCKER_IMAGE_NAME
+from lazarus.utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -71,7 +72,9 @@ def list_containers_from_config() -> List[SystemContainer]:
         if "container" in k:
             for i in range(int(v["replicas"])):
                 containers.append(
-                    SystemContainer(v["command"], v["identifier"].format(id=i))
+                    SystemContainer(
+                        v["command"].format(id=i), v["identifier"].format(id=i)
+                    )
                 )
     logger.info("Parsed %s system containers", len(containers))
     logger.info("Parsed containers: %s", containers)
