@@ -1,3 +1,4 @@
+import threading
 from multiprocessing import Process
 from typing import Dict, Type, TypeVar, Optional, Sequence
 
@@ -11,9 +12,6 @@ from lazarus.exceptions import IncorrectSessionId
 
 logger = get_logger(__name__)
 
-DependencyName = str
-Host = str
-
 TaskCls = TypeVar("TaskCls", bound=Task)
 
 
@@ -24,28 +22,52 @@ class Node(Process):
         queue_in: Queue,
         exchanges_out: Sequence[Exchange],
         producers: int = 1,
-        dependencies: Optional[Dict[DependencyName, Host]] = None,
+        dependencies: Optional[Dict[str, Queue]] = None,
         **callback_kwargs,
     ):
         super().__init__()
         self.current_session_id: Optional[str] = None
-        self.dependencies = self.wait_for_dependencies(dependencies or {})
-        self.callback = callback(**self.dependencies, **callback_kwargs)
         self.producers = producers
         self.n_eos = 0
         self.queue_in = queue_in
         self.exchanges_out = exchanges_out
         self.processed = 0
+        logger.info("Solving dependencies")
+        self.dependencies = self.wait_for_dependencies(dependencies or {})
+        logger.info("Solved dependencies %s", self.dependencies)
+        self.callback = callback(**self.dependencies, **callback_kwargs)
 
     def wait_for_dependencies(self, dependencies):
         solved_dependencies = {}
-        for dependency, host in dependencies.items():
-            solved_dependencies[dependency] = self.fetch_result(host)
+        for dependency, queue in dependencies.items():
+            logger.info("Solving %s from %s", dependency, queue)
+            solved_dependencies[dependency] = self.fetch_result(dependency, queue)
         return solved_dependencies
 
-    def fetch_result(self, host):
-        # TODO: actually implement this
-        return host
+    def fetch_result(self, key: str, queue: Queue):
+        done_event = threading.Event()
+
+        class DummyCallback:
+            def __init__(self, done, key):
+                self.result = None
+                self.key = key
+                self.done = done
+
+            def __call__(self, message):
+                logger.error("Dependency callback :: message %s", message)
+                if message["type"] != EOS:
+                    self.result = message["data"][self.key]
+                else:
+                    self.done.set()
+                message.ack()
+
+        _callback = DummyCallback(done_event, key)
+
+        queue.consume(_callback)
+        done_event.wait()
+        queue.close()
+
+        return _callback.result
 
     def put_new_message_out(self, message: Dict) -> None:
         # TODO: decorate message with session id and type (data?)
@@ -72,14 +94,14 @@ class Node(Process):
                 f"Session {message_session_id} is not valid. Currently serving {self.current_session_id}"
             )
 
-    def propagate_eos(self, _eos_msg):
+    def propagate_eos(self):
+        logger.info("Propagating EOS")
         for exchange in self.exchanges_out:
             exchange.broadcast(
                 Message(data={"type": EOS, "session_id": self.current_session_id})
             )
 
     def handle_eos(self, eos_msg):
-        self.propagate_eos(eos_msg)
         self.n_eos += 1
 
         logger.info("Received %s/%s EOS", self.n_eos, self.producers)
@@ -87,8 +109,12 @@ class Node(Process):
             self.processed = 0
             collected_results = self.callback.collect() or []
             logger.info("Collected %s results", len(collected_results))
+
             for result in collected_results:
                 self.put_new_message_out(result)
+
+            self.propagate_eos()
+
             self.current_session_id = None
             self.n_eos = 0
 

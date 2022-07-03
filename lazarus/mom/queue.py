@@ -22,6 +22,9 @@ class Queue(RabbitConnection):
         self.channel.basic_qos(prefetch_count=1)  # TODO: Get from config
         self.worker = Thread(target=lambda: None)
 
+    def __str__(self):
+        return f"Queue {self.queue_name}"
+
     def __work(self, callback):
         try:
             self.tag = self.channel.basic_consume(

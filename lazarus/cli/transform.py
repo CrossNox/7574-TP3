@@ -51,15 +51,16 @@ def posts_mean_score(
     exchanges_out = [
         WorkerExchange(
             rabbit_host,
-            output_exchange,
+            f"{output_exchange}_{idx}",
             consumers=[
                 ConsumerConfig(
-                    f"{output_exchange}-group_{idx}-id_{j}", ConsumerType.Subscriber
+                    f"{output_exchange}-group_{idx}-id_{j}",
+                    ConsumerType.Worker if i > 1 else ConsumerType.Subscriber,
                 )
-                for idx, i in enumerate(subscribers)
                 for j in range(i)
             ],
         )
+        for idx, i in enumerate(subscribers)
     ]
 
     node = Node(
@@ -87,20 +88,22 @@ def filter_columns(
     heartbeat_sender = HeartbeatSender()
     heartbeat_sender.start()
 
-    logger.info("Reading from %s", f"{input_queue}-group_{group_id}-id_{node_id}")
+    logger.info("Subscribers groups: %s", subscribers)
+
     queue_in = Queue(rabbit_host, f"{input_queue}-group_{group_id}-id_{node_id}")
     exchanges_out = [
         WorkerExchange(
             rabbit_host,
-            output_exchange,
+            f"{output_exchange}_{idx}",
             consumers=[
                 ConsumerConfig(
-                    f"{output_exchange}-group_{idx}-id_{j}", ConsumerType.Subscriber
+                    f"{output_exchange}-group_{idx}-id_{j}",
+                    ConsumerType.Worker if i > 1 else ConsumerType.Subscriber,
                 )
-                for idx, i in enumerate(subscribers)
                 for j in range(i)
             ],
         )
+        for idx, i in enumerate(subscribers)
     ]
 
     node = Node(
