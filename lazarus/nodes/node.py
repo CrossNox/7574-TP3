@@ -84,8 +84,9 @@ class Node(Process):
 
         if self.n_eos == self.producers:
             self.processed = 0
-            collected_results = self.callback.collect()
-            for result in collected_results or []:
+            collected_results = self.callback.collect() or []
+            logger.info("Collected %s results", len(collected_results))
+            for result in collected_results:
                 self.put_new_message_out(result)
             self.current_session_id = None
 

@@ -23,7 +23,7 @@ def relay_file(
         rabbit_host,
         exchange,
         [
-            ConsumerConfig(f"{queue}-group_{idx}-id_{j}", ConsumerType.Worker)
+            ConsumerConfig(f"{queue}-group_{idx}-id_{j}", ConsumerType.Subscriber)
             for idx, i in enumerate(consumers)
             for j in range(i)
         ],
