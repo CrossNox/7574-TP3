@@ -1,9 +1,9 @@
-from typing import Callable
 from threading import Event, Thread
+from typing import Callable
 
-from lazarus.utils import get_logger
 from lazarus.mom.message import Message
 from lazarus.mom.rabbit import RabbitConnection
+from lazarus.utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -21,6 +21,9 @@ class Queue(RabbitConnection):
         self.tag = ""
         self.channel.basic_qos(prefetch_count=1)  # TODO: Get from config
         self.worker = Thread(target=lambda: None)
+
+    def __str__(self):
+        return f"Queue {self.queue_name}"
 
     def __work(self, callback):
         try:

@@ -2,12 +2,12 @@ from typing import List
 
 import typer
 
+from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.mom.queue import Queue
 from lazarus.nodes.node import Node
-from lazarus.utils import get_logger
 from lazarus.sidecar import HeartbeatSender
 from lazarus.tasks.transforms import FilterColumn, PostsMeanScore
-from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
+from lazarus.utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -54,12 +54,13 @@ def posts_mean_score(
             output_exchange,
             consumers=[
                 ConsumerConfig(
-                    f"{output_exchange}-group_{idx}-id_{j}", ConsumerType.Subscriber
+                    f"{output_exchange}-group_{idx}-id_{j}",
+                    ConsumerType.Worker if i > 1 else ConsumerType.Subscriber,
                 )
-                for idx, i in enumerate(subscribers)
                 for j in range(i)
             ],
         )
+        for idx, i in enumerate(subscribers)
     ]
 
     node = Node(
@@ -87,7 +88,8 @@ def filter_columns(
     heartbeat_sender = HeartbeatSender()
     heartbeat_sender.start()
 
-    logger.info("Reading from %s", f"{input_queue}-group_{group_id}-id_{node_id}")
+    logger.info("Subscribers groups: %s", subscribers)
+
     queue_in = Queue(rabbit_host, f"{input_queue}-group_{group_id}-id_{node_id}")
     exchanges_out = [
         WorkerExchange(
@@ -95,12 +97,13 @@ def filter_columns(
             output_exchange,
             consumers=[
                 ConsumerConfig(
-                    f"{output_exchange}-group_{idx}-id_{j}", ConsumerType.Subscriber
+                    f"{output_exchange}-group_{idx}-id_{j}",
+                    ConsumerType.Worker if i > 1 else ConsumerType.Subscriber,
                 )
-                for idx, i in enumerate(subscribers)
                 for j in range(i)
             ],
         )
+        for idx, i in enumerate(subscribers)
     ]
 
     node = Node(

@@ -1,7 +1,10 @@
 import re
 
-from lazarus.tasks.base import Task
 from lazarus.constants import ED_KWDS_PATTERN
+from lazarus.tasks.base import Task
+from lazarus.utils import get_logger
+
+logger = get_logger(__name__)
 
 
 class Filter(Task):
@@ -10,12 +13,13 @@ class Filter(Task):
 
 
 class FilterPostsScoreAboveMean(Filter):
-    def __init__(self, mean):
+    def __init__(self, posts_mean_score):
         super().__init__()
-        self.mean = mean
+        self.mean = posts_mean_score
 
     def __call__(self, message):
-        msg_score = message["score"]
+        logger.info("Filter posts score above mean: %s", message)
+        msg_score = float(message["score"])  # TODO: WHY is this a string
         if msg_score >= self.mean:
             return message
 
