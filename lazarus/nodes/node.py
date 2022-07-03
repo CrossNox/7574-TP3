@@ -89,6 +89,7 @@ class Node(Process):
             for result in collected_results:
                 self.put_new_message_out(result)
             self.current_session_id = None
+            self.n_eos = 0
 
         eos_msg.ack()
 
