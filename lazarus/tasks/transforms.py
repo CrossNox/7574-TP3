@@ -19,14 +19,22 @@ class CommentFilter(Transform):
         self.columns = set(columns)
 
     def __call__(self, msg):
+        try:
+            float(msg["sentiment"])
+        except:  # pylint: disable=bare-except
+            logger.error("Bad sentiment %s", msg["sentiment"])
+            return None
+
         msg_id = re.match(
             r"https://old.reddit.com/r/me_?irl/comments/([^/]+)/.*", msg["permalink"]
         ).groups()
         if msg_id is None:
             logger.error("Bad permalink %s", msg["permalink"])
             return
+
         msg["id"] = msg_id[0]
         msg = {k: v for k, v in msg.items() if k in self.columns}
+
         return msg
 
 class PostsMeanSentiment(Transform):
