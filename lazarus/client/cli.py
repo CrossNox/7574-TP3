@@ -1,13 +1,13 @@
 import csv
-import multiprocessing as mp
 from pathlib import Path
+import multiprocessing as mp
 from typing import List, Optional
 
 import typer
 
 from lazarus.constants import EOS
-from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.mom.message import Message
+from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.utils import (
     DEFAULT_PRETTY,
     DEFAULT_VERBOSE,
@@ -23,25 +23,23 @@ logger = get_logger(__name__)
 app = typer.Typer()
 
 
-def relay_file(
-    rabbit_host: str, exchange: str, file_path: Path, queue: str, groups: List[str]
-):
+def relay_file(rabbit_host: str, exchange: str, file_path: Path, groups: List[str]):
     # TODO: get session id
 
-    groups = [parse_group(group) for group in groups]
+    parsed_groups = [parse_group(group) for group in groups]
 
     exchanges = [
         WorkerExchange(
             rabbit_host,
-            exchange_name(queue, group_id),
+            exchange_name(exchange, group_id),
             [
                 ConsumerConfig(
-                    queue_in_name(queue, group_id, node_id), ConsumerType.Worker
+                    queue_in_name(exchange, group_id, node_id), ConsumerType.Worker
                 )
                 for node_id in range(group_size)
             ],
         )
-        for group_id, group_size in groups
+        for group_id, group_size in parsed_groups
     ]
 
     with open(file_path, newline="") as f:
@@ -88,7 +86,7 @@ def main(
 
     pposts = mp.Process(
         target=relay_file,
-        args=(rabbit_host, posts_exchange, posts, "posts", posts_groups or []),
+        args=(rabbit_host, posts_exchange, posts, posts_groups or []),
     )
     pcomments = mp.Process(
         target=relay_file,
@@ -96,7 +94,6 @@ def main(
             rabbit_host,
             comments_exchange,
             comments,
-            "comments",
             comments_groups or [],
         ),
     )
