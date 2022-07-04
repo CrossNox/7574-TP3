@@ -5,6 +5,7 @@ import typer
 from lazarus.cli.sink import app as sink_app
 from lazarus.sidecar import HeartbeatsListener
 from lazarus.cli.filter import app as filter_app
+from lazarus.cli.joiner import app as joiner_app
 from lazarus.cli.dataset import app as dataset_app
 from lazarus.constants import DEFAULT_HEARTBEAT_PORT
 from lazarus.cli.transform import app as transform_app
@@ -17,6 +18,7 @@ app = typer.Typer()
 app.add_typer(dataset_app, name="dataset")
 app.add_typer(filter_app, name="filter")
 app.add_typer(transform_app, name="transform")
+app.add_typer(joiner_app, name="joiner")
 app.add_typer(sink_app, name="sink")
 
 

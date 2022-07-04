@@ -221,7 +221,7 @@ class QueueConsumer:
             if self.__is_eos(message):
                 if self.__should_finish(message):
                     self.done_event.set()
-                    return
+                return
 
             message_out = self.callback(message["data"])
 
@@ -240,9 +240,8 @@ class QueueConsumer:
             logger.error("Unhandled exception with message %s", message, exc_info=True)
 
     def consume(self):
-        done_event = threading.Event()
         self.queue_in.consume(self.__handle_msg)
-        done_event.wait()
+        self.done_event.wait()
         self.queue_in.close()
 
         return self.session_id
@@ -271,8 +270,14 @@ class JoinNode(Process):
         wait_forever = threading.Event()
         while True:
             add_consumer = QueueConsumer(
-                self.add_producers, self.add_queue, self.joiner.add, []
+                self.add_producers,
+                self.add_queue,
+                self.joiner.add,
+                [],
+                propagate_eos=False,
             )
+
+            logger.info("Start consuming add queue")
             session_id = add_consumer.consume()
 
             join_consumer = QueueConsumer(
@@ -284,131 +289,10 @@ class JoinNode(Process):
                 propagate_eos=True,
             )
 
+            logger.info("Start consuming join queue")
             join_consumer.consume()
 
-            wait_forever.wait()
+            logger.info("Reset joiner")
+            self.joiner.reset()
 
-
-class JoinNodeB(Process):
-    def __init__(
-        self,
-        joiner: Type[Joiner],
-        add_queue: Queue,
-        join_queue: Queue,
-        exchanges_out: Sequence[Exchange],
-        add_producers: int = 1,
-        join_producers: int = 1,
-    ):
-        super().__init__()
-        self.current_session_id: Optional[str] = None
-        self.joiner = joiner
-        self.add_queue = add_queue
-        self.join_queue = join_queue
-        self.exchanges_out = exchanges_out
-        self.add_producers = add_producers
-        self.join_producers = join_producers
-        self.add_eos = 0
-        self.join_eos = 0
-
-    def put_new_message_out(self, message: Dict) -> None:
-        # TODO: decorate message with session id and type (data?)
-        for exchange in self.exchanges_out:
-            exchange.push(
-                Message(
-                    data={
-                        "type": "data",
-                        "data": message,
-                        "session_id": self.current_session_id,
-                    }
-                )
-            )
-
-    def is_eos(self, message: Message) -> bool:
-        return message["type"] == EOS
-
-    def check_session_id(self, message: Message):
-        message_session_id = message["session_id"]
-        if self.current_session_id is None:
-            self.current_session_id = message_session_id
-        elif message_session_id != self.current_session_id:
-            raise IncorrectSessionId(
-                f"Session {message_session_id} is not valid. Currently serving {self.current_session_id}"
-            )
-
-    def propagate_eos(self):
-        logger.info("Propagating EOS")
-        for exchange in self.exchanges_out:
-            exchange.broadcast(
-                Message(data={"type": EOS, "session_id": self.current_session_id})
-            )
-
-    def reset(self):
-        self.current_session_id = None
-        self.join_eos = 0
-        self.add_eos = 0
-
-    def join_should_finish(self, _eos_msg) -> bool:
-        self.join_eos += 1
-        if self.join_eos == self.join_producers:
-            self.propagate_eos()
-            self.reset()
-            return True
-        return False
-
-    def add_should_finish(self, _eos_msg) -> bool:
-        self.add_eos += 1
-        if self.add_eos == self.add_producers:
-            return True
-
-        return False
-
-    def consume_until_eos(self, callback, eos_handler, queue):
-        done_event = threading.Event()
-
-        def handle_msg(message):
-            try:
-                self.check_session_id(message)
-
-                if self.is_eos(message):
-                    eos_handler()
-                    message.ack()
-                    done_event.set()
-                    return
-
-                message_out = callback(message["data"])
-
-                if message_out is not None:
-                    self.put_new_message_out(message_out)
-
-                message.ack()
-            except IncorrectSessionId:
-                logger.info(
-                    "Dropped message due to bad session id (%s vs %s)",
-                    message["session_id"],
-                    self.current_session_id,
-                )
-            except Exception:
-                logger.error(
-                    "Unhandled exception with message %s", message, exc_info=True
-                )
-
-        queue.consume(handle_msg)
-        done_event.wait()
-        queue.close()
-
-    # TODO: Handlear sigterm
-    def run(self):
-        wait_forever = threading.Event()
-        while True:
-            self.consume_until_eos(
-                self.joiner.add, self.add_should_finish, self.add_queue
-            )
-            self.consume_until_eos(
-                self.joiner.join, self.join_should_finish, self.join_queue
-            )
-            # TODO: This blocks the thread forever
-            # here we should reopen both queues and start over
-            # add_queue.open()
-            # join_queue.open()
-            # and yes, this implies a new TCP connection with RabbitMQ
             wait_forever.wait()

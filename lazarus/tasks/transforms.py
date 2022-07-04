@@ -37,6 +37,7 @@ class CommentFilter(Transform):
 
         return msg
 
+
 class PostsMeanSentiment(Transform):
     def __init__(self):
         super().__init__()

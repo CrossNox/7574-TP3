@@ -5,9 +5,14 @@ import typer
 from lazarus.mom.queue import Queue
 from lazarus.nodes.node import Node
 from lazarus.sidecar import HeartbeatSender
-from lazarus.tasks.transforms import FilterColumn, PostsMeanScore, CommentFilter, PostsMeanSentiment
 from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.utils import get_logger, parse_group, exchange_name, queue_in_name
+from lazarus.tasks.transforms import (
+    FilterColumn,
+    CommentFilter,
+    PostsMeanScore,
+    PostsMeanSentiment,
+)
 
 logger = get_logger(__name__)
 
@@ -129,6 +134,7 @@ def filter_columns(
     )
     node.start()
 
+
 @app.command()
 def filter_comments(
     node_id: int = typer.Argument(..., help="The node id"),
@@ -177,6 +183,7 @@ def filter_comments(
         producers=input_group_size,
     )
     node.start()
+
 
 @app.command()
 def posts_mean_sentiment(
