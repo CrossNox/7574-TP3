@@ -8,9 +8,22 @@ class Task(abc.ABC):
     def __init__(self):
         self.pipe_to: Optional[Task] = None
 
-    def __rshift__(self, other):
+    def set_downstream(self, other):
         self.pipe_to = other
-        return self
+
+    def __rshift__(self, other):
+        """Compose tasks easily.
+
+        Example:
+        ```python
+            a1 = Task()
+            a2 = Task()
+            a3 = Task()
+            a1 >> a2 >> a3
+        ```
+        """
+        self.set_downstream(other)
+        return other
 
     @abc.abstractmethod
     def _execute(self, message: Dict):
