@@ -1,12 +1,13 @@
+from collections import defaultdict
+from contextlib import contextmanager
+from io import TextIOWrapper
 import json
 from pathlib import Path
-from io import TextIOWrapper
 from typing import Dict, Optional
-from collections import defaultdict
 
-from lazarus.utils import get_logger
 from lazarus.exceptions import BadChecksumError
 from lazarus.storage.base import KeyType, TopicType, BaseStorage, MessageType
+from lazarus.utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -46,6 +47,14 @@ class LocalStorage(BaseStorage):
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.data: Dict[TopicType, Dict[KeyType, MessageType]] = defaultdict(dict)
         self.data_files: Dict[TopicType, TextIOWrapper] = {}
+        self._recovery_mode = False  # TODO: move this to the base class
+
+    @contextmanager
+    def recovery_mode(self):
+        # Move to base class
+        self._recovery_mode = True
+        yield self
+        self._recovery_mode = False
 
     def __del__(self):
         for v in self.data_files.values():
@@ -54,6 +63,9 @@ class LocalStorage(BaseStorage):
     def contains(self, key: KeyType, topic: Optional[TopicType] = None):
         return key in self.data[topic]
 
+    def contains_topic(self, topic: TopicType):
+        return topic in self.data
+
     def put(
         self,
         key: KeyType,
@@ -61,6 +73,9 @@ class LocalStorage(BaseStorage):
         topic: Optional[TopicType] = None,
         autosync: bool = True,
     ):
+        if self.recovery_mode:
+            return
+
         if topic not in self.data_files:
             self.data_files[topic] = open(self.data_dir / f"{topic}.jsonl", "w")
 
@@ -79,7 +94,14 @@ class LocalStorage(BaseStorage):
         if autosync:
             self.sync(topic)
 
+    def iter_topic(self, topic: TopicType):
+        for k, v in self.data[topic].items():
+            yield k, v
+
     def sync(self, topic: Optional[TopicType] = None):
+        if self.recovery_mode:
+            return
+
         if topic is not None:
             self.data_files[topic].flush()
         else:

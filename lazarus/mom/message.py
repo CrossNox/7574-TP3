@@ -5,6 +5,10 @@ class Message:
     def __init__(self, data=None):
         self._data = data or {}
 
+    @property
+    def data(self):
+        return self._data
+
     def __getitem__(self, key):
         return self._data[key]
 

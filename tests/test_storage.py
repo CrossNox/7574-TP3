@@ -63,3 +63,17 @@ def test_load_from_disk_step_on_keys(storage):
     storage.put("k1", "v2", topic="topic")
     new_storage = LocalStorage.load(storage.data_dir)
     assert new_storage.get("k1", topic="topic") == "v2"
+
+
+def test_add_int(storage):
+    storage.put("k1", 1)
+    new_storage = LocalStorage.load(storage.data_dir)
+    assert storage.get("k1") == 1
+    assert new_storage.get("k1") == 1
+
+
+def test_add_dict(storage):
+    storage.put("k1", {"v1": 1, "v2": "2"})
+    new_storage = LocalStorage.load(storage.data_dir)
+    assert storage.get("k1") == {"v1": 1, "v2": "2"}
+    assert new_storage.get("k1") == {"v1": 1, "v2": "2"}

@@ -1,14 +1,17 @@
-import threading
 from multiprocessing import Process
+import threading
 from typing import Dict, Type, TypeVar, Optional, Sequence
 
+import tqdm
+
 from lazarus.constants import EOS
+from lazarus.exceptions import IncorrectSessionId
+from lazarus.mom.exchange import Exchange
+from lazarus.mom.message import Message
 from lazarus.mom.queue import Queue
+from lazarus.storage.base import BaseStorage
 from lazarus.tasks.base import Task
 from lazarus.utils import get_logger
-from lazarus.mom.message import Message
-from lazarus.mom.exchange import Exchange
-from lazarus.exceptions import IncorrectSessionId
 
 logger = get_logger(__name__)
 
@@ -23,6 +26,7 @@ class Node(Process):
         exchanges_out: Sequence[Exchange],
         producers: int = 1,
         dependencies: Optional[Dict[str, Queue]] = None,
+        storage: Optional[BaseStorage] = None,
         **callback_kwargs,
     ):
         super().__init__()
@@ -32,16 +36,35 @@ class Node(Process):
         self.queue_in = queue_in
         self.exchanges_out = exchanges_out
         self.processed = 0
+        self.storage = storage
         logger.info("Solving dependencies")
-        self.dependencies = self.wait_for_dependencies(dependencies or {})
+        self.dependencies = self.solve_dependencies(dependencies or {})
         logger.info("Solved dependencies %s", self.dependencies)
         self.callback = callback(**self.dependencies, **callback_kwargs)
 
-    def wait_for_dependencies(self, dependencies):
+        if self.storage is not None and self.storage.contains_topic("messages"):
+            with self.storage.recovery_mode():
+                for _, v in tqdm(
+                    iterable=self.storage.iter_topic("messages"),
+                    desc="Recovery going on",
+                ):
+                    self.handle_new_message(Message(data=v))
+
+    def solve_dependencies(self, dependencies):
+        try:
+            return {k: v for k, v in self.storage.iter_topic("dependencies")}
+        except (AttributeError, KeyError):
+            pass
+
         solved_dependencies = {}
         for dependency, queue in dependencies.items():
             logger.info("Solving %s from %s", dependency, queue)
             solved_dependencies[dependency] = self.fetch_result(dependency, queue)
+
+        if self.storage is not None:
+            for k, v in solved_dependencies.items():
+                self.storage.put(k, v, topic="dependencies")
+
         return solved_dependencies
 
     def fetch_result(self, key: str, queue: Queue):
@@ -122,6 +145,9 @@ class Node(Process):
 
     def handle_new_message(self, message: Message):
         try:
+            if self.storage is not None:  # EOS should have an identifier
+                self.storage.put(message["id"], message.data, "messages")
+
             self.check_session_id(message)
 
             if self.is_eos(message):
