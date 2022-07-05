@@ -77,3 +77,17 @@ def test_add_dict(storage):
     new_storage = LocalStorage.load(storage.data_dir)
     assert storage.get("k1") == {"v1": 1, "v2": "2"}
     assert new_storage.get("k1") == {"v1": 1, "v2": "2"}
+
+
+def test_recovery_mode(storage):
+    storage.put("k", "v1", topic="topic")
+    assert storage.get("k", topic="topic") == "v1"
+    storage.put("k", "v2", topic="topic")
+    assert storage.get("k", topic="topic") == "v2"
+    with storage.recovery_mode():
+        everything = [(k, v) for k, v in storage.iter_topic("topic")]
+        assert everything == [("k", "v2")]
+        storage.put("k", "v3", topic="topic")
+        everything = [(k, v) for k, v in storage.iter_topic("topic")]
+        assert everything == [("k", "v2")]
+    assert storage.get("k", topic="topic") == "v2"

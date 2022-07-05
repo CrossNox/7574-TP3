@@ -73,7 +73,7 @@ class LocalStorage(BaseStorage):
         topic: Optional[TopicType] = None,
         autosync: bool = True,
     ):
-        if self.recovery_mode:
+        if self._recovery_mode:
             return
 
         if topic not in self.data_files:
@@ -99,7 +99,7 @@ class LocalStorage(BaseStorage):
             yield k, v
 
     def sync(self, topic: Optional[TopicType] = None):
-        if self.recovery_mode:
+        if self._recovery_mode:
             return
 
         if topic is not None:
