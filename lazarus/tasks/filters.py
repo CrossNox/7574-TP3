@@ -25,13 +25,7 @@ class FilterPostsScoreAboveMean(Filter):
 
 class FilterEdComment(Filter):
     def _execute(self, message):
-        if message["body"] is None:
-            return None
-        try:
-            msg_body = message["body"].lower()
-        except:
-            print(message)
-            raise
+        msg_body = message["body"].lower()
         if re.search(ED_KWDS_PATTERN, msg_body) is not None:
             return message
 
