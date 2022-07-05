@@ -40,6 +40,7 @@ class Node(Process):
         self.exchanges_out = exchanges_out
         self.processed = 0
         self.storage = storage
+        self.recovery_mode = True
 
         logger.info("Solving dependencies")
         self.dependencies = self.solve_dependencies(dependencies or {})
@@ -52,12 +53,14 @@ class Node(Process):
         if self.storage is not None and self.storage.contains_topic("messages"):
             logger.info("Reprocessing messages from storage")
             with self.storage.recovery_mode(), logging_redirect_tqdm():
+                self.recovery_mode = True
                 for _, v in tqdm(
                     iterable=self.storage.iter_topic("messages"),
                     desc="Recovery going on",
                 ):
                     self.handle_new_message(Message(data=v))
             logger.info("Reprocessing messages from storage done")
+            self.recovery_mode = False
 
         logger.info("Initialization done")
 
@@ -106,6 +109,9 @@ class Node(Process):
 
     def put_new_message_out(self, message: Dict) -> None:
         # TODO: decorate message with session id and type (data?)
+        if self.recovery_mode:
+            return
+
         for exchange in self.exchanges_out:
             exchange.push(
                 Message(
