@@ -1,25 +1,26 @@
 from typing import Any, Dict, List, Optional
 
+from lazarus.tasks.base import Task
+
 Entry = Dict[str, Any]
 
 
-class Joiner:
-    def __init__(self, columns: List[str]):
-        self.columns = set(columns)
-        self.table: Dict[str, Entry] = {}
+class Joiner(Task):
+    def __init__(self, merge_key: str, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.merge_key = merge_key
+        self.data = {}
 
-    def add(self, entry):
-        if "id" in entry and entry["id"] not in self.table:
-            self.table[entry["id"]] = entry
-
-    def join(self, entry) -> Optional[Entry]:
-        if "id" in entry and entry["id"] in self.table:
-            cpy = dict(self.table[entry["id"]])
-            cpy.update(entry)
-            ret = {k: v for k, v in cpy.items() if k in self.columns}
-            return ret
+    def __call__(self, message: Dict) -> Optional[Dict]:
+        message_key = message[self.merge_key]
+        if message_key not in self.data:
+            self.data[message_key] = message
         else:
-            return None
+            other_message = self.data.pop(message_key)
+            return {**message, **other_message}
+
+    def collect(self):
+        return None
 
     def reset(self):
-        self.table = {}
+        self.data = {}

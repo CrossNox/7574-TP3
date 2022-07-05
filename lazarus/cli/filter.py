@@ -2,11 +2,11 @@ from typing import List
 
 import typer
 
+from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.mom.queue import Queue
 from lazarus.nodes.node import Node
 from lazarus.sidecar import HeartbeatSender
 from lazarus.tasks.filters import FilterEdComment, FilterPostsScoreAboveMean
-from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.utils import get_logger, parse_group, exchange_name, queue_in_name
 
 logger = get_logger(__name__)
@@ -67,7 +67,7 @@ def posts_score_above_mean(
         callback=FilterPostsScoreAboveMean,
         queue_in=queue_in,
         exchanges_out=exchanges_out,
-        dependencies={"posts_mean_score": Queue(rabbit_host, mean_queue)},
+        dependencies={"posts_mean_score": (Queue(rabbit_host, mean_queue), 1)},
         producers=input_group_size,
     )
     node.start()
