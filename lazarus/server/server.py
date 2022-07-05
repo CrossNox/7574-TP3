@@ -1,12 +1,10 @@
-# Acá va a estar la lógica del servidor
-
-#TODO: Cambiar prints por logger
-
 from typing import Dict, Optional, List
 import enum
 import zmq
 import json
 import time
+
+#TODO: Cambiar prints por logger
 
 class MessageType(enum.Enum):
     # Start New Session
@@ -30,10 +28,11 @@ class MessageType(enum.Enum):
     REDIRECT = 13 # Enviado por el servidor, para indicar el address del nodo disponible para recibir peticiones
     PROBEACK = 14 # Enviado por el servidor, para indicar que se encuentra disponible para recibir peticiones
 
+NO_SESSION = -1 #TODO: Constantes a constants.py
+
 class ProtocolMessage:
     def __init__(self, mtype: MessageType):
         self.mtype = mtype
-        pass
 
 class ClientMsg(ProtocolMessage):
     def __init__(
@@ -46,7 +45,7 @@ class ClientMsg(ProtocolMessage):
 
     def encode(self) -> str:
         m = {
-            'type': self.mtype,
+            'type': self.mtype.value,
             'session_id': self.session_id
         }
         return json.dumps(m)
@@ -54,7 +53,7 @@ class ClientMsg(ProtocolMessage):
     @classmethod
     def decode(cls, data: str):
         d_data = json.loads(data)
-        m = ClientMsg(d_data['type'], d_data['session_id'])
+        m = ClientMsg(MessageType(d_data['type']), d_data['session_id'])
         return m
 
 class ServerMsg(ProtocolMessage):
@@ -68,7 +67,7 @@ class ServerMsg(ProtocolMessage):
 
     def encode(self) -> str:
         m = {
-            'type': self.mtype,
+            'type': self.mtype.value,
             'payload': self.payload
         }
         return json.dumps(m)
@@ -76,34 +75,66 @@ class ServerMsg(ProtocolMessage):
     @classmethod
     def decode(cls, data: str):
         d_data = json.loads(data)
-        m = ServerMsg(d_data['type'], d_data['payload'])
+        m = ServerMsg(MessageType(d_data['type']), d_data['payload'])
         return m
 
-NO_SESSION = -1 #TODO: Constantes a constants.py
+import shelve
 
 class Server:
     # address -> localhost:8000
-    def __init__(self, address: str):
+    def __init__(self, port: str):
         self.context = zmq.Context.instance()  # type: ignore
         self.rep = self.context.socket(zmq.REP)
-        self.rep.bind(f"tcp://{address}")
+        self.rep.bind(f"tcp://*:{port}")
         self.current_session = NO_SESSION
         self.completed_sessions = 0                                                     #TODO: MANEJAR EXCEPCIONES Y FALLOS DE CONEXIÓN DEL LADO DEL SERVER
         self.on_creation_session = 0
+        self.work_done_count = 0
+        self.db = shelve.open('/app/db-data/server-db', writeback=True)
+        self.load_state()
 
-        print(f"Server started on {address}")
+        print(f"Server started on {port}")
+
+    # This is only for testing
+    def write_state(self):
+        state = {
+            'completed_sessions': self.completed_sessions,
+            'current_session': self.current_session,
+            'work_done_count': self.work_done_count
+        }
+
+        self.db['state'] = state
+        self.db.sync()
+
+        print("State Written")
+
+    def load_state(self):
+        if 'state' not in self.db:
+            return
+        state = self.db['state']
+
+        self.completed_sessions = state.get('completed_sessions', 0)
+        self.current_session = state.get('current_session', 0)
+        self.work_done_count = state.get('work_done_count', 0)
+
+        print("Loading state from DB:")
+        print(f"- Completed Sessions: {self.completed_sessions}")
+        print(f"- Current Session: {self.current_session}")
+        print(f"- Work Done Count: {self.work_done_count}")
+
 
     def run(self):
         while True:
             try:
-                m = self.rep.recv()
+                m = self.rep.recv_string()
                 self.__handle_new_message(ClientMsg.decode(m))
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"Exception on server {e}")
 
 
     def __handle_new_message(self, msg: ClientMsg):
         handlers = {
+            MessageType.PROBE: self.__handle_probe,
             MessageType.SYN: self.__handle_syn,
             MessageType.SYNCHECK: self.__handle_syncheck,
             MessageType.RESULT: self.__handle_result,
@@ -111,16 +142,21 @@ class Server:
         }
 
         if not msg.mtype in handlers:
-            self.rep.send(ServerMsg(MessageType.INVALMSG))
+            self.rep.send_string(ServerMsg(MessageType.INVALMSG).encode())
             return
 
         handler = handlers[msg.mtype]
         handler(msg)
 
+    def __handle_probe(self, _msg: ClientMsg):
+        print("Received PROBE")
+        self.rep.send_string(ServerMsg(MessageType.PROBEACK).encode())
+
     def __handle_syn(self, _msg: ClientMsg):
+        print("Received SYN")
         # We don't want to persist any data here, the session has not been created yet
         if self.current_session != NO_SESSION:
-            self.rep.send(ServerMsg(MessageType.NOTAVAIL))
+            self.rep.send_string(ServerMsg(MessageType.NOTAVAIL).encode())
             return
 
         self.on_creation_session = self.completed_sessions + 1
@@ -129,19 +165,20 @@ class Server:
             'session_id': self.on_creation_session,
         }
 
-        self.rep.send(ServerMsg(MessageType.SYNACK, payload=session_data))
+        self.rep.send_string(ServerMsg(MessageType.SYNACK, payload=session_data).encode())
 
     def __handle_syncheck(self, msg: ClientMsg):
+        print("Received SYNCHECK")
         # Now, we received confirmation, so we will create the session
         if self.current_session != NO_SESSION:
-            self.rep.send(ServerMsg(MessageType.INVALSESSION))
+            self.rep.send_string(ServerMsg(MessageType.INVALSESSION).encode())
             return
 
         if msg.session_id != self.on_creation_session:
-            self.rep.send(ServerMsg(MessageType.INVALSESSION))
+            self.rep.send_string(ServerMsg(MessageType.INVALSESSION).encode())
             return
 
-        # Now, let's send that data to disk!
+        # Now, let's send_string that data to disk!
         self.current_session = self.on_creation_session
 
         # TODO: This should not be hardcoded
@@ -155,29 +192,33 @@ class Server:
         }
 
         # TODO: Persist here
+        self.write_state()
 
-        self.rep.send(ServerMsg(MessageType.CHECKACK, payload=session_data))
+        self.rep.send_string(ServerMsg(MessageType.CHECKACK, payload=session_data).encode())
 
     def __handle_result(self, msg: ClientMsg):
+        print("Received RESULT")
         # Here we want to check if computation has finished
         if self.current_session != msg.session_id:
-            self.rep.send(ServerMsg(MessageType.INVALSESSION))
+            self.rep.send_string(ServerMsg(MessageType.INVALSESSION).encode())
             return
 
         if not self.__work_done():
-            self.rep.send(ServerMsg(MessageType.NOTDONE))
+            print("Work not done")
+            self.rep.send_string(ServerMsg(MessageType.NOTDONE).encode())
             return
 
         computation_result = self.__get_computation_results()
 
-        self.rep.send(ServerMsg(MessageType.RESRESP, payload=computation_result))
+        self.rep.send_string(ServerMsg(MessageType.RESRESP, payload=computation_result).encode())
 
 
 
     # Fin will always response FINACK, except when it's on a leader-election
     def __handle_fin(self, msg: ClientMsg):
+        print("Received FIN")
         if self.current_session != msg.session_id:
-            self.rep.send(ServerMsg(MessageType.FINACK))
+            self.rep.send_string(ServerMsg(MessageType.FINACK).encode())
             return
 
         # Reset current session, including computation results
@@ -185,12 +226,14 @@ class Server:
         self.completed_sessions += 1
 
         # TODO: Persist here
+        self.write_state()
 
-        self.rep.send(ServerMsg(MessageType.FINACK)) # If this fails, the client will send another FIN
+        self.rep.send_string(ServerMsg(MessageType.FINACK).encode()) # If this fails, the client will send another FIN
 
 
     def __work_done(self):
-        return False
+        self.work_done_count += 1
+        return self.work_done_count % 10 == 0
 
     def __get_computation_results(self):
         return {
@@ -214,6 +257,8 @@ class Client:
 
     def run(self):
         self.__start_new_session()
+        print("Writing data on queues...")
+        time.sleep(10)
         # Here we should start sending comments and posts to queues
         # When we are done with that, we start asking server for the results
         self.__get_computation_result()
@@ -250,7 +295,7 @@ class Client:
             print("Asking for computation results...")
             resp = self.__send_and_wait_response(ClientMsg(MessageType.RESULT, self.session_id), retry=True)
 
-            if resp.mtype != MessageType.RESULT:
+            if resp.mtype != MessageType.RESRESP:
                 print("Computation hasn't finished yet")
                 self.__close_connection()
                 time.sleep(1)
@@ -285,16 +330,18 @@ class Client:
             return
 
     def __connect_to_server(self):
+        tries = 0
         while True:
-            tries = 0
             for address in self.addresses:
                 try:
                     self.__connect(address)
                     return
-                except Exception:
+                except Exception as e:
                     print(f"Connection with server failed on address {address}")
+                    print(e)
                     tries += 1
                     if tries == len(self.addresses):
+                        tries = 0
                         #TODO: En realidad esto significa que el server es not-available, no debería pasar
                         # Si llega a quedar, deberiamos levantar el valor de config, no hardcodearlo
                         time.sleep(1)
@@ -304,9 +351,9 @@ class Client:
             print(f"Trying to connect with server on address {address}")
             self.__close_connection()
             self.req = self.context.socket(zmq.REQ)
-            self.req.connect(address)
-            self.req.send(ClientMsg(MessageType.PROBE, NO_SESSION).encode())
-            m = self.req.recv()
+            self.req.connect(f"tcp://{address}")
+            self.req.send_string(ClientMsg(MessageType.PROBE, NO_SESSION).encode())
+            m = self.req.recv_string()
             resp = ServerMsg.decode(m)
             if resp.mtype == MessageType.REDIRECT:
                 address = resp.payload['address']
@@ -327,8 +374,8 @@ class Client:
     def __send_and_wait_response(self, msg: ClientMsg, retry=True) -> ServerMsg:
         while True:
             try:
-                self.req.send(msg.encode())
-                m = self.req.recv()
+                self.req.send_string(msg.encode())
+                m = self.req.recv_string()
                 resp = ServerMsg.decode(m)
                 if not retry:
                     return resp
