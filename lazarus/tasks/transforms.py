@@ -14,15 +14,16 @@ class Transform(Task):
 
 
 class ExtractPostID(Transform):
-    def __call__(self, msg):
-        msg_id = re.match(
-            r"https://old.reddit.com/r/me_?irl/comments/([^/]+)/.*", msg["permalink"]
+    def _execute(self, message):
+        message_id = re.match(
+            r"https://old.reddit.com/r/me_?irl/comments/([^/]+)/.*",
+            message["permalink"],
         ).groups()
-        if msg_id is None:
-            logger.error("Bad permalink %s", msg["permalink"])
+        if message_id is None:
+            logger.error("Bad permalink %s", message["permalink"])
             return
-        msg["id"] = msg_id[0]
-        return msg
+        message["id"] = message_id[0]
+        return message
 
 
 class PostsMeanSentiment(Transform):
@@ -30,10 +31,10 @@ class PostsMeanSentiment(Transform):
         super().__init__()
         self.sentiment_scores = defaultdict(lambda: {"count": 0, "sum": 0})
 
-    def __call__(self, msg):
-        post_id = msg["id"]
+    def _execute(self, message):
+        post_id = message["id"]
         self.sentiment_scores[post_id]["count"] += 1
-        self.sentiment_scores[post_id]["sum"] += float(msg["sentiment"])
+        self.sentiment_scores[post_id]["sum"] += float(message["sentiment"])
 
     def collect(self):
         return [
@@ -48,9 +49,9 @@ class PostsMeanScore(Transform):
         self.n_posts_scores = 0
         self.total_posts_scores = 0
 
-    def __call__(self, msg):
+    def _execute(self, message):
         self.n_posts_scores += 1
-        self.total_posts_scores += float(msg["score"])
+        self.total_posts_scores += float(message["score"])
 
     def collect(self):
         return [{"posts_mean_score": self.total_posts_scores / self.n_posts_scores}]
@@ -61,6 +62,6 @@ class FilterColumn(Transform):
         super().__init__(*args, **kwargs)
         self.columns = set(columns)
 
-    def __call__(self, msg):
-        msg = {k: v for k, v in msg.items() if k in self.columns}
-        return msg
+    def _execute(self, message):
+        message = {k: v for k, v in message.items() if k in self.columns}
+        return message

@@ -17,21 +17,27 @@ class FilterPostsScoreAboveMean(Filter):
         super().__init__()
         self.mean = posts_mean_score
 
-    def __call__(self, message):
+    def _execute(self, message):
         msg_score = float(message["score"])  # TODO: WHY is this a string
         if msg_score >= self.mean:
             return message
 
 
 class FilterEdComment(Filter):
-    def __call__(self, message):
-        msg_body = message["body"].lower()
+    def _execute(self, message):
+        if message["body"] is None:
+            return None
+        try:
+            msg_body = message["body"].lower()
+        except:
+            print(message)
+            raise
         if re.search(ED_KWDS_PATTERN, msg_body) is not None:
             return message
 
 
 class FilterNanSentiment(Filter):
-    def __call__(self, message):
+    def _execute(self, message):
         try:
             float(message["sentiment"])
             return message
@@ -40,7 +46,7 @@ class FilterNanSentiment(Filter):
 
 
 class FilterNullURL(Filter):
-    def __call__(self, message):
+    def _execute(self, message):
         message_url = message["url"]
         if message_url is not None and message_url != "":
             return message
@@ -54,7 +60,7 @@ class FilterUniqIDs(Filter):
     def collect(self):
         return list(self.ids)
 
-    def __call__(self, message):
+    def _execute(self, message):
         new_id = message["id"]
         if new_id is not None:
             self.ids.add(new_id)
