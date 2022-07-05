@@ -3,6 +3,7 @@ from typing import List
 import typer
 
 from lazarus.cfg import cfg
+from lazarus.constants import DEFAULT_DATA_DIR
 from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.mom.queue import Queue
 from lazarus.nodes.node import Node
@@ -79,7 +80,9 @@ def posts_mean_score(
         for output_group_id, output_group_size in parsed_output_groups
     ]
 
-    storage = LocalStorage(cfg.lazarus.data_dir(cast=ensure_path))
+    storage = LocalStorage(
+        cfg.lazarus.data_dir(cast=ensure_path, default=DEFAULT_DATA_DIR)
+    )
 
     node = Node(
         callback=PostsMeanScore,
@@ -131,7 +134,9 @@ def filter_columns(
         for output_group_id, output_group_size in parsed_output_groups
     ]
 
-    storage = LocalStorage(cfg.lazarus.data_dir(cast=ensure_path))
+    storage = LocalStorage(
+        cfg.lazarus.data_dir(cast=ensure_path, default=DEFAULT_DATA_DIR)
+    )
 
     node = Node(
         callback=FilterColumn,
