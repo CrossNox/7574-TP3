@@ -4,9 +4,8 @@ import logging
 import pathlib
 from typing import Tuple, Callable
 
-import typer
-
 import pika
+import typer
 
 DEFAULT_PRETTY = False
 

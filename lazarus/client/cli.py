@@ -1,13 +1,13 @@
 import csv
-import multiprocessing as mp
 from pathlib import Path
+import multiprocessing as mp
 from typing import List, Optional
 
 import typer
 
 from lazarus.constants import EOS
-from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.mom.message import Message
+from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.utils import (
     DEFAULT_PRETTY,
     DEFAULT_VERBOSE,
@@ -90,7 +90,12 @@ def main(
     )
     pcomments = mp.Process(
         target=relay_file,
-        args=(rabbit_host, comments_exchange, comments, comments_groups or [],),
+        args=(
+            rabbit_host,
+            comments_exchange,
+            comments,
+            comments_groups or [],
+        ),
     )
 
     logger.info("Starting posts relay process")
