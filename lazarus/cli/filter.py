@@ -67,7 +67,7 @@ def posts_score_above_mean(
         callback=FilterPostsScoreAboveMean,
         queue_in=queue_in,
         exchanges_out=exchanges_out,
-        dependencies={"posts_mean_score": (Queue(rabbit_host, mean_queue), 1)},
+        dependencies={"posts_mean_score": Queue(rabbit_host, mean_queue)},
         producers=input_group_size,
     )
     node.start()

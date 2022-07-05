@@ -24,7 +24,7 @@ class Node(Process):
         queues_in: Union[List[Queue], Queue],
         exchanges_out: Sequence[Exchange],
         producers: Union[List[int], int] = 1,
-        dependencies: Optional[Dict[str, Tuple[Queue, int]]] = None,
+        dependencies: Optional[Dict[str, Queue, int]] = None,
         **callback_kwargs,
     ):
         super().__init__()
@@ -47,10 +47,11 @@ class Node(Process):
 
         self.exchanges_out = exchanges_out
         self.processed = 0
-        self.dependencies_raw = dependencies or {}
+
         self.callback_cls = callback
         self.callback_kwargs = callback_kwargs
 
+        self.dependencies_raw = dependencies or {}
         logger.info("Solving dependencies")
         self.dependencies = self.wait_for_dependencies(self.dependencies_raw)
         logger.info("Solved dependencies %s", self.dependencies)
@@ -61,14 +62,12 @@ class Node(Process):
     def wait_for_dependencies(self, dependencies):
         solved_dependencies = {}
         # TODO: paralelizar
-        for dependency, (queue, n_eos) in dependencies.items():
+        for dependency, queue in dependencies.items():
             logger.info("Solving %s from %s", dependency, queue)
-            solved_dependencies[dependency] = self.fetch_result(
-                dependency, queue, n_eos
-            )
+            solved_dependencies[dependency] = self.fetch_result(dependency, queue)
         return solved_dependencies
 
-    def fetch_result(self, key: str, queue: Queue, n_eos: int = 1):
+    def fetch_result(self, key: str, queue: Queue):
         done_event = threading.Event()
 
         class DummyCallback:
@@ -88,7 +87,7 @@ class Node(Process):
                         self.done.set()
                 message.ack()
 
-        _callback = DummyCallback(done_event, key, n_eos)
+        _callback = DummyCallback(done_event, key)
 
         queue.consume(_callback)
         done_event.wait()
