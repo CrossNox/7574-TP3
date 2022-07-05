@@ -73,12 +73,15 @@ def posts_score_above_mean(
         for output_group_id, output_group_size in parsed_output_groups
     ]
 
+    node_identifier: str = build_node_id(group_id, node_id)
+
     storage = LocalStorage.load(
         cfg.lazarus.data_dir(cast=ensure_path, default=DEFAULT_DATA_DIR)
+        / node_identifier
     )
 
     node = Node(
-        identifier=build_node_id(group_id, node_id),
+        identifier=node_identifier,
         callback=FilterPostsScoreAboveMean,
         queue_in=queue_in,
         exchanges_out=exchanges_out,

@@ -168,7 +168,7 @@ class Node(Process):
 
     def handle_new_message(self, message: Message):
         try:
-            if self.storage is not None:
+            if self.storage is not None and not self.storage.in_recovery_mode:
                 # Have I seen this message for this session id?
                 message_id = message.get("id") or message.get("data", {}).get("id")
                 if message_id is None:
@@ -194,8 +194,10 @@ class Node(Process):
                         else:
                             raise
 
+            if self.storage is not None:
+                self.storage.put(message_id, message.data, topic="messages")
+
             self.check_session_id(message)
-            self.storage.put(message_id, message.data, topic="messages")
 
             if self.is_eos(message):
                 self.handle_eos(message)
