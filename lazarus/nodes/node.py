@@ -1,5 +1,4 @@
 import threading
-from threading import Lock
 from multiprocessing import Process
 from typing import Dict, List, Type, Union, TypeVar, Optional, Sequence
 
@@ -56,7 +55,7 @@ class Node(Process):
         logger.info("Solved dependencies %s", self.dependencies)
         self.callback = self.callback_cls(**self.dependencies, **self.callback_kwargs)
 
-        self.run_lock = Lock()
+        self.run_lock = threading.Lock()
 
     def wait_for_dependencies(self, dependencies):
         solved_dependencies = {}
@@ -137,6 +136,7 @@ class Node(Process):
             )
 
     def handle_eos(self, eos_msg, queue_name):
+        # TODO: save the identifier instead of just adding 1
         self.received_eos[queue_name] += 1
 
         logger.info("Received %s/%s EOS", self.received_eos, self.n_eos)
