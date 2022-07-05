@@ -3,6 +3,7 @@ from multiprocessing import Process
 from typing import Dict, Type, TypeVar, Optional, Sequence
 
 from tqdm import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 from lazarus.constants import EOS
 from lazarus.mom.queue import Queue
@@ -50,13 +51,15 @@ class Node(Process):
         # If there are any messages, and we need to recover, reprocess each message
         if self.storage is not None and self.storage.contains_topic("messages"):
             logger.info("Reprocessing messages from storage")
-            with self.storage.recovery_mode():
+            with self.storage.recovery_mode(), logging_redirect_tqdm():
                 for _, v in tqdm(
                     iterable=self.storage.iter_topic("messages"),
                     desc="Recovery going on",
                 ):
                     self.handle_new_message(Message(data=v))
             logger.info("Reprocessing messages from storage done")
+
+        logger.info("Initialization done")
 
     def solve_dependencies(self, dependencies):
         try:
