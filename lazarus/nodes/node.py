@@ -1,17 +1,17 @@
-import threading
 from multiprocessing import Process
+import threading
 from typing import Dict, Type, TypeVar, Optional, Sequence
 
 from tqdm import tqdm
 
 from lazarus.constants import EOS
+from lazarus.exceptions import IncorrectSessionId
+from lazarus.mom.exchange import Exchange
+from lazarus.mom.message import Message
 from lazarus.mom.queue import Queue
+from lazarus.storage.base import BaseStorage
 from lazarus.tasks.base import Task
 from lazarus.utils import get_logger
-from lazarus.mom.message import Message
-from lazarus.mom.exchange import Exchange
-from lazarus.storage.base import BaseStorage
-from lazarus.exceptions import IncorrectSessionId
 
 logger = get_logger(__name__)
 
@@ -68,11 +68,11 @@ class Node(Process):
         solved_dependencies = {}
         for dependency, queue in dependencies.items():
             logger.info("Solving %s from %s", dependency, queue)
-            solved_dependencies[dependency] = self.fetch_result(dependency, queue)
+            dependency_value = self.fetch_result(dependency, queue)
+            solved_dependencies[dependency] = dependency_value
 
-        if self.storage is not None:
-            for k, v in solved_dependencies.items():
-                self.storage.put(k, v, topic="dependencies")
+            if self.storage is not None:
+                self.storage.put(dependency, dependency_value, topic="dependencies")
 
         return solved_dependencies
 
