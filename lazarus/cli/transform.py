@@ -5,6 +5,7 @@ import typer
 from lazarus.mom.queue import Queue
 from lazarus.nodes.node import Node
 from lazarus.sidecar import HeartbeatSender
+from lazarus.bully import LeaderElectionListener
 from lazarus.tasks.transforms import FilterColumn, PostsMeanScore
 from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.utils import get_logger, parse_group, exchange_name, queue_in_name
@@ -95,6 +96,9 @@ def filter_columns(
     ),
     rabbit_host: str = typer.Option("rabbitmq", help="The address for rabbitmq"),
 ):
+    leader_election_listener = LeaderElectionListener()
+    leader_election_listener.start()
+
     heartbeat_sender = HeartbeatSender()
     heartbeat_sender.start()
 
