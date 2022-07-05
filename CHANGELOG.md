@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.1.0] - 2022-07-05
 ### Added
+- Make tasks compositable
+
+## [2.1.0] - 2022-07-05
+### Added
 - Initial bully leader election algorithm
 
 ## [2.0.0] - 2022-07-03
