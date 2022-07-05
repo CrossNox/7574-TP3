@@ -37,11 +37,15 @@ class Node(Process):
         self.exchanges_out = exchanges_out
         self.processed = 0
         self.storage = storage
+
         logger.info("Solving dependencies")
         self.dependencies = self.solve_dependencies(dependencies or {})
         logger.info("Solved dependencies %s", self.dependencies)
+
+        # Now we can instantiate the callback
         self.callback = callback(**self.dependencies, **callback_kwargs)
 
+        # If there are any messages, and we need to recover, reprocess each message
         if self.storage is not None and self.storage.contains_topic("messages"):
             with self.storage.recovery_mode():
                 for _, v in tqdm(

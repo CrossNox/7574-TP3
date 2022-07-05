@@ -4,8 +4,9 @@ import logging
 import pathlib
 from typing import Tuple, Callable
 
-import pika
 import typer
+
+import pika
 
 DEFAULT_PRETTY = False
 
@@ -76,6 +77,13 @@ def path_or_none(s):
     if s == "":
         return None
     return pathlib.Path(s)
+
+
+def ensure_path(path):
+    """Create a path if it does not exist."""
+    path = pathlib.Path(path)
+    path.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 def coalesce(f: Callable) -> Callable:

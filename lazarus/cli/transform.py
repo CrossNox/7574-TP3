@@ -2,12 +2,20 @@ from typing import List
 
 import typer
 
+from lazarus.cfg import cfg
+from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.mom.queue import Queue
 from lazarus.nodes.node import Node
 from lazarus.sidecar import HeartbeatSender
+from lazarus.storage.local import LocalStorage
 from lazarus.tasks.transforms import FilterColumn, PostsMeanScore
-from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
-from lazarus.utils import get_logger, parse_group, exchange_name, queue_in_name
+from lazarus.utils import (
+    get_logger,
+    ensure_path,
+    parse_group,
+    exchange_name,
+    queue_in_name,
+)
 
 logger = get_logger(__name__)
 
@@ -71,10 +79,13 @@ def posts_mean_score(
         for output_group_id, output_group_size in parsed_output_groups
     ]
 
+    storage = LocalStorage(cfg.lazarus.data_dir(cast=ensure_path))
+
     node = Node(
         callback=PostsMeanScore,
         queue_in=queue_in,
         exchanges_out=exchanges_out,
+        storage=storage,
         producers=input_group_size,
     )
     node.start()
@@ -120,10 +131,13 @@ def filter_columns(
         for output_group_id, output_group_size in parsed_output_groups
     ]
 
+    storage = LocalStorage(cfg.lazarus.data_dir(cast=ensure_path))
+
     node = Node(
         callback=FilterColumn,
         columns=columns,
         queue_in=queue_in,
+        storage=storage,
         exchanges_out=exchanges_out,
         producers=input_group_size,
     )
