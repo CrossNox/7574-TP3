@@ -6,6 +6,7 @@ DOCKER_BIN=docker
 DOCKER_COMPOSE_BIN=docker-compose
 
 export DOCKER_BUILDKIT = 1
+export LAZARUS_DATADIR = ${PWD}/lazarus_data
 
 SAMPLE_SIZE := 0.01
 

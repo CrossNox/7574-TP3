@@ -147,5 +147,6 @@ _minted-informe/
 *.zip
 
 data/*.csv
+lazarus_data/
 
 outputs
