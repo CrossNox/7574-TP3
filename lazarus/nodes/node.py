@@ -1,17 +1,18 @@
-import threading
 from multiprocessing import Process
+import threading
+import time
 from typing import Dict, Type, TypeVar, Optional, Sequence
 
 from tqdm import tqdm
 
 from lazarus.constants import EOS
+from lazarus.exceptions import IncorrectSessionId
+from lazarus.mom.exchange import Exchange
+from lazarus.mom.message import Message
 from lazarus.mom.queue import Queue
+from lazarus.storage.base import BaseStorage
 from lazarus.tasks.base import Task
 from lazarus.utils import get_logger
-from lazarus.mom.message import Message
-from lazarus.mom.exchange import Exchange
-from lazarus.storage.base import BaseStorage
-from lazarus.exceptions import IncorrectSessionId
 
 logger = get_logger(__name__)
 
@@ -166,20 +167,33 @@ class Node(Process):
     def handle_new_message(self, message: Message):
         try:
             if self.storage is not None:
+                # Have I seen this message for this session id?
                 message_id = message.get("id") or message.get("data", {}).get("id")
                 if message_id is None:
                     raise ValueError("Id can't be found")
+                message_session_id = message["session_id"]
+                message_type = message["type"]
+                message_id = f"{message_session_id}_{message_type}_{message_id}"
 
-                if not self.storage.contains(message_id, "messages"):
+                if self.storage.contains(message_id, topic="messages"):
                     # Drop duplicates
-                    self.storage.put(message_id, message.data, "messages")
-                else:
                     logger.info(
                         "Message %s already seen (present in storage). Dropping.",
                         message,
                     )
 
+                    try:
+                        # Duplicate messages require no processing
+                        message.ack()
+                        return
+                    except NotImplementedError:
+                        if self.storage is not None and self.storage.in_recovery_mode:
+                            return
+                        else:
+                            raise
+
             self.check_session_id(message)
+            self.storage.put(message_id, message.data, topic="messages")
 
             if self.is_eos(message):
                 self.handle_eos(message)
