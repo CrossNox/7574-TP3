@@ -1,16 +1,15 @@
-import functools
-from multiprocessing import Process
 import threading
 from threading import Lock
-from typing import Dict, List, Type, Tuple, Union, TypeVar, Optional, Sequence
+from multiprocessing import Process
+from typing import Dict, List, Type, Union, TypeVar, Optional, Sequence
 
 from lazarus.constants import EOS
-from lazarus.exceptions import IncorrectSessionId
-from lazarus.mom.exchange import Exchange
-from lazarus.mom.message import Message
 from lazarus.mom.queue import Queue
 from lazarus.tasks.base import Task
 from lazarus.utils import get_logger
+from lazarus.mom.message import Message
+from lazarus.mom.exchange import Exchange
+from lazarus.exceptions import IncorrectSessionId
 
 logger = get_logger(__name__)
 
@@ -21,10 +20,10 @@ class Node(Process):
     def __init__(
         self,
         callback: Type[TaskCls],
-        queues_in: Union[List[Queue], Queue],
+        queue_in: Union[List[Queue], Queue],
         exchanges_out: Sequence[Exchange],
         producers: Union[List[int], int] = 1,
-        dependencies: Optional[Dict[str, Queue, int]] = None,
+        dependencies: Optional[Dict[str, Queue]] = None,
         **callback_kwargs,
     ):
         super().__init__()
@@ -37,10 +36,10 @@ class Node(Process):
             self.producers = [producers]
 
         self.queues_in: List[Queue]
-        if isinstance(queues_in, list):
-            self.queues_in = queues_in
+        if isinstance(queue_in, list):
+            self.queues_in = queue_in
         else:
-            self.queues_in = [queues_in]
+            self.queues_in = [queue_in]
 
         self.n_eos = {q.queue_name: p for q, p in zip(self.queues_in, self.producers)}
         self.received_eos = {q.queue_name: 0 for q in self.queues_in}

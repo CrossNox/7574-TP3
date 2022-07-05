@@ -2,11 +2,11 @@ from typing import List
 
 import typer
 
-from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.mom.queue import Queue
 from lazarus.nodes.node import Node
-from lazarus.sidecar import HeartbeatSender
 from lazarus.tasks.joiner import Joiner
+from lazarus.sidecar import HeartbeatSender
+from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.utils import get_logger, parse_group, exchange_name, queue_in_name
 
 logger = get_logger(__name__)
@@ -19,7 +19,8 @@ def joiner(
     node_id: int = typer.Argument(..., help="The node id"),
     merge_key: str = typer.Argument("id", help="The key to merge on the tables"),
     group_id: str = typer.Option(
-        "sentiment_joiner", help="The id of the consumer group",
+        "sentiment_joiner",
+        help="The id of the consumer group",
     ),
     input_group: List[str] = typer.Option(
         ..., help="<name>:<n_subscribers> of the input groups"
@@ -64,7 +65,7 @@ def joiner(
     node = Node(
         callback=Joiner,
         merge_key=merge_key,
-        queues_in=queues_in,
+        queue_in=queues_in,
         exchanges_out=exchanges_out,
         producers=n_eos,
     )

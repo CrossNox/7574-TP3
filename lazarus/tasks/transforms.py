@@ -1,6 +1,6 @@
-from collections import defaultdict
 import re
 from typing import List
+from collections import defaultdict
 
 from lazarus.tasks.base import Task
 from lazarus.utils import get_logger
