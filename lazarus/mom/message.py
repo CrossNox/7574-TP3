@@ -15,6 +15,12 @@ class Message:
     def __setitem__(self, key, value):
         self._data[key] = value
 
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
     def __str__(self):
         return str(self._data)
 

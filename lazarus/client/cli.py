@@ -1,13 +1,13 @@
 import csv
-from pathlib import Path
 import multiprocessing as mp
+from pathlib import Path
 from typing import List, Optional
 
 import typer
 
 from lazarus.constants import EOS
-from lazarus.mom.message import Message
 from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
+from lazarus.mom.message import Message
 from lazarus.utils import (
     DEFAULT_PRETTY,
     DEFAULT_VERBOSE,
@@ -50,7 +50,7 @@ def relay_file(rabbit_host: str, exchange: str, file_path: Path, groups: List[st
             for exch in exchanges:
                 exch.push(msg)
 
-        m = {"type": EOS, "session_id": 1}  # TODO: Hardcoded
+        m = {"type": EOS, "session_id": 1, "id": "client"}  # TODO: Hardcoded
         for exch in exchanges:
             exch.broadcast(Message(data=m))
 
@@ -90,12 +90,7 @@ def main(
     )
     pcomments = mp.Process(
         target=relay_file,
-        args=(
-            rabbit_host,
-            comments_exchange,
-            comments,
-            comments_groups or [],
-        ),
+        args=(rabbit_host, comments_exchange, comments, comments_groups or [],),
     )
 
     logger.info("Starting posts relay process")

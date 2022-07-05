@@ -91,3 +91,5 @@ def test_recovery_mode(storage):
         everything = [(k, v) for k, v in storage.iter_topic("topic")]
         assert everything == [("k", "v2")]
     assert storage.get("k", topic="topic") == "v2"
+    storage.put("k", "v4", topic="topic")
+    assert storage.get("k", topic="topic") == "v4"

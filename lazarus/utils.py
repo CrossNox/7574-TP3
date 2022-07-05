@@ -121,5 +121,9 @@ def parse_group(group: str) -> Tuple[str, int]:
     return group, int(size)
 
 
+def build_node_id(group_id: str, node_id: int) -> str:
+    return f"{group_id}_{node_id}"
+
+
 def queue_in_name(input_group_id: str, group_id: str, node_id: int) -> str:
-    return f"{input_group_id}::{group_id}_{node_id}"
+    return f"{input_group_id}::{build_node_id(group_id, node_id)}"

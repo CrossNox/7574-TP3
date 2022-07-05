@@ -2,7 +2,7 @@ from multiprocessing import Process
 import threading
 from typing import Dict, Type, TypeVar, Optional, Sequence
 
-import tqdm
+from tqdm import tqdm
 
 from lazarus.constants import EOS
 from lazarus.exceptions import IncorrectSessionId
@@ -21,6 +21,7 @@ TaskCls = TypeVar("TaskCls", bound=Task)
 class Node(Process):
     def __init__(
         self,
+        identifier: str,
         callback: Type[TaskCls],
         queue_in: Queue,
         exchanges_out: Sequence[Exchange],
@@ -30,6 +31,7 @@ class Node(Process):
         **callback_kwargs,
     ):
         super().__init__()
+        self.identifier = identifier
         self.current_session_id: Optional[str] = None
         self.producers = producers
         self.n_eos = 0
@@ -47,18 +49,21 @@ class Node(Process):
 
         # If there are any messages, and we need to recover, reprocess each message
         if self.storage is not None and self.storage.contains_topic("messages"):
+            logger.info("Reprocessing messages from storage")
             with self.storage.recovery_mode():
                 for _, v in tqdm(
                     iterable=self.storage.iter_topic("messages"),
                     desc="Recovery going on",
                 ):
                     self.handle_new_message(Message(data=v))
+            logger.info("Reprocessing messages from storage done")
 
     def solve_dependencies(self, dependencies):
         try:
+            logger.info("Trying to load dependencies from storage")
             return {k: v for k, v in self.storage.iter_topic("dependencies")}
         except (AttributeError, KeyError):
-            pass
+            logger.info("Loading dependencies from storage failed")
 
         solved_dependencies = {}
         for dependency, queue in dependencies.items():
@@ -125,7 +130,13 @@ class Node(Process):
         logger.info("Propagating EOS")
         for exchange in self.exchanges_out:
             exchange.broadcast(
-                Message(data={"type": EOS, "session_id": self.current_session_id})
+                Message(
+                    data={
+                        "type": EOS,
+                        "session_id": self.current_session_id,
+                        "id": self.identifier,
+                    }
+                )
             )
 
     def handle_eos(self, eos_msg):
@@ -144,13 +155,29 @@ class Node(Process):
 
             self.current_session_id = None
             self.n_eos = 0
-
-        eos_msg.ack()
+        try:
+            eos_msg.ack()
+        except NotImplementedError:
+            if self.storage is not None and self.storage.in_recovery_mode:
+                pass
+            else:
+                raise
 
     def handle_new_message(self, message: Message):
         try:
-            if self.storage is not None:  # EOS should have an identifier
-                self.storage.put(message["id"], message.data, "messages")
+            if self.storage is not None:
+                message_id = message.get("id") or message.get("data", {}).get("id")
+                if message_id is None:
+                    raise ValueError("Id can't be found")
+
+                if not self.storage.contains(message_id, "messages"):
+                    # Drop duplicates
+                    self.storage.put(message_id, message.data, "messages")
+                else:
+                    logger.info(
+                        "Message %s already seen (present in storage). Dropping.",
+                        message,
+                    )
 
             self.check_session_id(message)
 
@@ -163,7 +190,14 @@ class Node(Process):
             if message_out is not None:
                 self.put_new_message_out(message_out)
 
-            message.ack()
+            try:
+                message.ack()
+            except NotImplementedError:
+                if self.storage is not None and self.storage.in_recovery_mode:
+                    pass
+                else:
+                    raise
+
         except IncorrectSessionId:
             logger.info(
                 "Dropped message due to bad session id (%s vs %s)",

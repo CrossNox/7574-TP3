@@ -49,8 +49,14 @@ class LocalStorage(BaseStorage):
         self.data_files: Dict[TopicType, TextIOWrapper] = {}
         self._recovery_mode = False  # TODO: move this to the base class
 
+    @property
+    def in_recovery_mode(self):
+        return self._recovery_mode
+
     @contextmanager
     def recovery_mode(self):
+        """Recovery mode ensures no changes to the storage will be made
+        while allowing to fetch data from it."""
         # Move to base class
         self._recovery_mode = True
         yield self

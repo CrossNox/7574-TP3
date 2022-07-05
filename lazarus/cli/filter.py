@@ -14,6 +14,7 @@ from lazarus.utils import (
     get_logger,
     ensure_path,
     parse_group,
+    build_node_id,
     exchange_name,
     queue_in_name,
 )
@@ -72,11 +73,12 @@ def posts_score_above_mean(
         for output_group_id, output_group_size in parsed_output_groups
     ]
 
-    storage = LocalStorage(
+    storage = LocalStorage.load(
         cfg.lazarus.data_dir(cast=ensure_path, default=DEFAULT_DATA_DIR)
     )
 
     node = Node(
+        identifier=build_node_id(group_id, node_id),
         callback=FilterPostsScoreAboveMean,
         queue_in=queue_in,
         exchanges_out=exchanges_out,
