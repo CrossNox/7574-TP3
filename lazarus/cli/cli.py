@@ -67,19 +67,8 @@ class HeartbeatReviverCallback:
 @app.command()
 def coordinator():
     containers = list_containers_from_config()
-
-    # keyfunc = ops.attrgetter("group")
-    # containers_by_group = {
-    #    k: list(g)
-    #    for k, g in itertools.groupby(sorted(containers, key=keyfunc), key=keyfunc)
-    # }
-    # for group in containers_by_group:
-    #    for container in containers_by_group[group]:
-    #        container.revive()
-    #
-    #    if len(containers_by_group[group]) > 1:
-    #        highest_in_group = containers_by_group[group][-1]
-    #        elect_leader(highest_in_group.identifier, highest_in_group.group_ids)
+    for container in containers:
+        container.revive()
 
     callback = HeartbeatReviverCallback(containers)
     hbl = HeartbeatsListener(

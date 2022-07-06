@@ -8,7 +8,6 @@ from lazarus.nodes.node import Node
 from lazarus.sidecar import HeartbeatSender
 from lazarus.constants import DEFAULT_DATA_DIR
 from lazarus.storage.local import LocalStorage
-from lazarus.bully import LeaderElectionListener
 from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.tasks.transforms import (
     FilterColumn,
@@ -120,9 +119,6 @@ def filter_columns(
     ),
     rabbit_host: str = typer.Option("rabbitmq", help="The address for rabbitmq"),
 ):
-    leader_election_listener = LeaderElectionListener()
-    leader_election_listener.start()
-
     heartbeat_sender = HeartbeatSender()
     heartbeat_sender.start()
 
