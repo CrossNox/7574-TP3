@@ -33,7 +33,7 @@ docker-image:
 .PHONY: docker-image
 
 download-data:
-	$(DOCKER_BIN) run -v $(CURDIR)/data:/data -v $(HOME)/.kaggle:/.kaggle -e KAGGLE_JSON_LOC=/.kaggle -e DATA_OUTPUTDIR=/data --entrypoint poetry 7574-tp3:latest run lazarus datset -vv --sample-size $(SAMPLE_SIZE)
+	$(DOCKER_BIN) run -v $(CURDIR)/data:/data -v $(HOME)/.kaggle:/.kaggle -e KAGGLE_JSON_LOC=/.kaggle -e DATA_OUTPUTDIR=/data --entrypoint poetry 7574-tp3:latest run lazarus dataset download --sample-size $(SAMPLE_SIZE)
 
 pyreverse:
 	poetry run pyreverse lazaurs --output=png --output-directory=informe/images/ --colorized --ignore=cli,client

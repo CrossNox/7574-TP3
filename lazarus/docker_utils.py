@@ -15,9 +15,13 @@ def revive(
     image=cfg.lazarus.docker_image(default=DOCKER_IMAGE_NAME),
     network=cfg.lazarus.docker_network(default=DOCKER_NETWORK),
     env: Optional[Dict] = None,
+    group: Optional[str] = None,
+    group_ids: List[str] = [],
 ):
     env = env or {}
-    env["IDENTIFIER"] = identifier
+    env["LAZARUS_IDENTIFIER"] = identifier
+    env["LAZARUS_GROUP"] = group
+    env["LAZARUS_GROUPIDS"] = " ".join(group_ids)
     try:
         docker_client = docker.from_env()
         container = docker_client.containers.run(
@@ -47,12 +51,16 @@ def revive(
 class SystemContainer:
     command: Union[str, List[str]]
     identifier: str
+    group: str
+    group_ids: List[str]
 
     def __post_init__(self):
         self.container = None
 
     def revive(self):
-        self.container = revive(self.identifier, self.command)
+        self.container = revive(
+            self.identifier, self.command, group=self.group, group_ids=self.group_ids
+        )
 
     def __del__(self):
         if self.container:
@@ -78,15 +86,17 @@ def list_containers_from_config() -> List[SystemContainer]:
             group_id = k[len("group_") :]
             n_replicas = int(v["replicas"])
 
-            input_group = v["input_group"]
-            input_group_size: int
-            if input_group == "client":
-                input_group_size = 1
-                input_group = v["input_queue"]
-            else:
-                input_group_size = int(config[f"group_{input_group}"]["replicas"])
+            input_group_arg = ""
 
-            input_group_arg = f"--input-group {input_group}:{input_group_size}"
+            for group in v["input_group"].split(" "):
+                group_size: int
+                if group == "client":
+                    group_size = 1
+                    group = v["input_queue"]
+                else:
+                    group_size = int(config[f"group_{group}"]["replicas"])
+
+                input_group_arg += f" --input-group {group}:{group_size}"
 
             output_groups = [x for x in v["output_groups"].split(" ") if x != ""]
             output_groups_sizes = (
@@ -105,14 +115,17 @@ def list_containers_from_config() -> List[SystemContainer]:
 
             command = f"{v['command']} {v['subcommand']}"
 
-            for i in range(n_replicas):
+            group_ids = [f"{group_id}_{i}" for i in range(n_replicas)]
+            for i, identifier in enumerate(group_ids):
                 depends_on = " ".join(
                     queue_in_name(arg, group_id, i)
                     for arg in v["depends_on"].split(" ")
                     if arg != ""
                 )
                 container_command = f"{command} {i} {v['args']} {depends_on} {input_group_arg} {output_groups_arg} --group-id {group_id}"
-                containers.append(SystemContainer(container_command, f"{group_id}_{i}"))
+                containers.append(
+                    SystemContainer(container_command, identifier, group_id, group_ids)
+                )
 
     logger.info("Parsed %s system containers", len(containers))
     logger.info("Parsed containers: %s", containers)

@@ -19,6 +19,10 @@ DEFAULT_PING_PORT: int = 8080
 HEARTBEAT: str = "HEARTBEAT"
 PING: str = "PING"
 
+DEFAULT_BULLY_PORT: int = 8090
+ELECTION: str = "ELECTION"
+VICTORY: str = "VICTORY"
+
 DOCKER_IMAGE_NAME: str = "7574-tp3:latest"
 DOCKER_NETWORK: str = "lazarus_net"
 
