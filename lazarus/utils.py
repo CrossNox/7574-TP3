@@ -6,6 +6,9 @@ from typing import Tuple, Callable
 
 import pika
 import typer
+import urllib3
+
+import docker
 
 DEFAULT_PRETTY = False
 
@@ -63,6 +66,12 @@ def config_logging(verbose: int = DEFAULT_VERBOSE, pretty: bool = DEFAULT_PRETTY
 
     pika_logger = logging.getLogger(pika.__name__)
     pika_logger.setLevel(logging.ERROR)
+
+    docker_logger = logging.getLogger(docker.__name__)
+    docker_logger.setLevel(logging.ERROR)
+
+    urllib3_logger = logging.getLogger(urllib3.__name__)
+    urllib3_logger.setLevel(logging.ERROR)
 
 
 def get_logger(name: str):
