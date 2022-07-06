@@ -57,6 +57,7 @@ def elect_leader(
     ),
 ):
     logger.info("%s starting leader election for size-%d group", container, len(group))
+    os.environ["LAZARUS_GROUP_LEADER"] = ""
 
     ctx = zmq.Context.instance()
 
@@ -127,3 +128,11 @@ class LeaderElectionListener(Thread):
         while True:
             logger.info("Listening for leader election")
             self.reply_to_leader_election()
+
+
+def get_leader():
+    return os.environ.get("LAZARUS_GROUP_LEADER")
+
+
+def is_leader():
+    return get_leader() == cfg.lazarus.identifier()
