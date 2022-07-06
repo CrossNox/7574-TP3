@@ -1,18 +1,18 @@
-import threading
 from multiprocessing import Process
+import threading
 from typing import Dict, List, Type, Union, TypeVar, Optional, Sequence
 
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 from lazarus.constants import EOS
+from lazarus.exceptions import IncorrectSessionId
+from lazarus.mom.exchange import Exchange
+from lazarus.mom.message import Message
 from lazarus.mom.queue import Queue
+from lazarus.storage.base import BaseStorage
 from lazarus.tasks.base import Task
 from lazarus.utils import get_logger
-from lazarus.mom.message import Message
-from lazarus.mom.exchange import Exchange
-from lazarus.storage.base import BaseStorage
-from lazarus.exceptions import IncorrectSessionId
 
 logger = get_logger(__name__)
 
@@ -187,7 +187,7 @@ class Node(Process):
         self.received_eos[queue_name] += 1
 
         logger.info("Received %s/%s EOS", self.received_eos, self.n_eos)
-        if all(self.received_eos[k] == v for k, v in self.n_eos.values()):
+        if all(self.received_eos[k] == v for k, v in self.n_eos.items()):
             self.processed = 0
             collected_results = self.callback.collect() or []
             logger.info("Collected %s results", len(collected_results))
