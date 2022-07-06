@@ -28,9 +28,7 @@ app = typer.Typer()
 def joiner(
     node_id: int = typer.Argument(..., help="The node id"),
     merge_keys: List[str] = typer.Argument(..., help="The keys to merge on the tables"),
-    group_id: str = typer.Option(
-        "sentiment_joiner", help="The id of the consumer group",
-    ),
+    group_id: str = typer.Option(..., help="The id of the consumer group",),
     input_group: List[str] = typer.Option(
         ..., help="<name>:<n_subscribers> of the input groups"
     ),

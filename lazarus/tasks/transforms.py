@@ -39,13 +39,13 @@ class PostsMeanSentiment(Transform):
         self.sentiment_scores = defaultdict(lambda: {"count": 0, "sum": 0})
 
     def __call__(self, msg, queue_name):
-        post_id = msg["id"]
+        post_id = msg["post_id"]
         self.sentiment_scores[post_id]["count"] += 1
         self.sentiment_scores[post_id]["sum"] += float(msg["sentiment"])
 
     def collect(self):
         return [
-            {"id": k, "mean_sentiment": v["sum"] / v["count"]}
+            {"post_id": k, "mean_sentiment": v["sum"] / v["count"]}
             for k, v in self.sentiment_scores.items()
         ]
 

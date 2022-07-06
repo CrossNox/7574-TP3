@@ -1,3 +1,5 @@
+import hashlib
+import json
 from multiprocessing import Process
 import threading
 from typing import Dict, List, Type, Union, TypeVar, Optional, Sequence
@@ -212,7 +214,12 @@ class Node(Process):
         try:
             message_id = message.get("id") or message.get("data", {}).get("id")
             if message_id is None:
-                raise ValueError("Id can't be found")
+                try:
+                    m = hashlib.md5()
+                    m.update(json.dumps(message.data, sort_keys=True).encode())
+                    message_id = m.hexdigest()[:32]
+                except:
+                    raise ValueError("Id can't be found or built")
             message_session_id = message["session_id"]
             message_type = message["type"]
             message_identifier = f"{message_session_id}_{message_type}_{message_id}"
