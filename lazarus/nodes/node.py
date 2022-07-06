@@ -1,18 +1,18 @@
-import threading
 from multiprocessing import Process
+import threading
 from typing import Dict, List, Type, Union, TypeVar, Optional, Sequence
 
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 from lazarus.constants import EOS
+from lazarus.exceptions import IncorrectSessionId
+from lazarus.mom.exchange import Exchange
+from lazarus.mom.message import Message
 from lazarus.mom.queue import Queue
+from lazarus.storage.base import BaseStorage
 from lazarus.tasks.base import Task
 from lazarus.utils import get_logger
-from lazarus.mom.message import Message
-from lazarus.mom.exchange import Exchange
-from lazarus.storage.base import BaseStorage
-from lazarus.exceptions import IncorrectSessionId
 
 logger = get_logger(__name__)
 
@@ -170,7 +170,7 @@ class Node(Process):
             )
 
     def propagate_eos(self):
-        logger.info("Propagating EOS")
+        logger.info("Propagating EOS to %s exchanges", len(self.exchanges_out))
         for exchange in self.exchanges_out:
             exchange.broadcast(
                 Message(
@@ -186,10 +186,14 @@ class Node(Process):
         # TODO: save the identifier instead of just adding 1
         self.received_eos[queue_name] += 1
 
-        for k, v in self.n_eos.items():
+        for _queue_name, _queue_eos in self.n_eos.items():
             logger.info(
-                "Received %s/%s EOS from %s", self.received_eos[queue_name], v, k
+                "Received %s/%s EOS from %s",
+                self.received_eos[_queue_name],
+                _queue_eos,
+                _queue_name,
             )
+
         if all(self.received_eos[k] == v for k, v in self.n_eos.items()):
             self.processed = 0
             collected_results = self.callback.collect() or []
@@ -209,25 +213,27 @@ class Node(Process):
             message_id = message.get("id") or message.get("data", {}).get("id")
             if message_id is None:
                 raise ValueError("Id can't be found")
+            message_session_id = message["session_id"]
+            message_type = message["type"]
+            message_identifier = f"{message_session_id}_{message_type}_{message_id}"
 
             if self.storage is not None and not self.storage.in_recovery_mode:
                 # Have I seen this message for this session id?
                 # Drop duplicates
-                message_session_id = message["session_id"]
-                message_type = message["type"]
-                message_id = f"{message_session_id}_{message_type}_{message_id}"
 
-                if self.storage.contains(message_id, topic="messages"):
+                if self.storage.contains(message_identifier, topic="messages"):
                     # Drop duplicates
                     logger.info(
-                        "Message %s already seen (present in storage). Dropping.",
+                        "Message %s with id %s already seen as %s. Dropping.",
                         message,
+                        message_identifier,
+                        self.storage.get(message_identifier, topic="messages"),
                     )
                     return
 
             if self.storage is not None:
                 self.storage.put(
-                    message_id,
+                    message_identifier,
                     {**message.data, "origin_queue": queue_name},
                     topic="messages",
                 )

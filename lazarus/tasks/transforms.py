@@ -1,6 +1,6 @@
+from collections import defaultdict
 import re
 from typing import List
-from collections import defaultdict
 
 from lazarus.tasks.base import Task
 from lazarus.utils import get_logger
@@ -14,26 +14,21 @@ class Transform(Task):
 
 
 class CommentFilter(Transform):
-    def __init__(self, columns: List[str], *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.columns = set(columns)
-
     def __call__(self, msg, queue_name):
         try:
             float(msg["sentiment"])
         except:  # pylint: disable=bare-except
-            logger.error("Bad sentiment %s", msg["sentiment"])
+            logger.debug("Bad sentiment %s", msg["sentiment"])
             return None
 
         msg_id = re.match(
             r"https://old.reddit.com/r/me_?irl/comments/([^/]+)/.*", msg["permalink"]
         ).groups()
         if msg_id is None:
-            logger.error("Bad permalink %s", msg["permalink"])
+            logger.debug("Bad permalink %s", msg["permalink"])
             return
 
-        msg["id"] = msg_id[0]
-        msg = {k: v for k, v in msg.items() if k in self.columns}
+        msg["post_id"] = msg_id[0]
 
         return msg
 

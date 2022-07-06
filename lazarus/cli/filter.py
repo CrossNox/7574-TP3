@@ -3,13 +3,13 @@ from typing import List
 import typer
 
 from lazarus.cfg import cfg
+from lazarus.constants import DEFAULT_DATA_DIR
+from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.mom.queue import Queue
 from lazarus.nodes.node import Node
 from lazarus.sidecar import HeartbeatSender
-from lazarus.constants import DEFAULT_DATA_DIR
 from lazarus.storage.local import LocalStorage
 from lazarus.tasks.filters import FilterEdComment, FilterPostsScoreAboveMean
-from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.utils import (
     get_logger,
     ensure_path,
@@ -95,7 +95,6 @@ def posts_score_above_mean(
 @app.command()
 def ed_comments(
     node_id: int = typer.Argument(..., help="The node id"),
-    columns: List[str] = typer.Argument(..., help="List of columns to keep"),
     group_id: str = typer.Option(
         "education_comments_filter", help="The id of the consumer group"
     ),
@@ -142,7 +141,6 @@ def ed_comments(
     node = Node(
         identifier=node_identifier,
         callback=FilterEdComment,
-        columns=columns,
         queue_in=queue_in,
         exchanges_out=exchanges_out,
         storage=storage,
