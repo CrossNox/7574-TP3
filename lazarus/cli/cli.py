@@ -3,15 +3,15 @@ from typing import Dict, List
 import typer
 
 from lazarus.bully import elect_leader
-from lazarus.cli.sink import app as sink_app
-from lazarus.sidecar import HeartbeatsListener
-from lazarus.cli.filter import app as filter_app
-from lazarus.cli.joiner import app as joiner_app
 from lazarus.cli.dataset import app as dataset_app
 from lazarus.cli.download import app as download_app
-from lazarus.constants import DEFAULT_HEARTBEAT_PORT
+from lazarus.cli.filter import app as filter_app
+from lazarus.cli.joiner import app as joiner_app
+from lazarus.cli.sink import app as sink_app
 from lazarus.cli.transform import app as transform_app
+from lazarus.constants import DEFAULT_HEARTBEAT_PORT
 from lazarus.docker_utils import SystemContainer, list_containers_from_config
+from lazarus.sidecar import HeartbeatsListener
 from lazarus.utils import DEFAULT_PRETTY, DEFAULT_VERBOSE, get_logger, config_logging
 
 logger = get_logger(__name__)
@@ -50,8 +50,8 @@ class HeartbeatReviverCallback:
 
     def __call__(self, host, port):
         self.containers[host].revive()
-        container = self.containers[host]
-        elect_leader(container.identifier, container.group_ids)
+        # container = self.containers[host]
+        # elect_leader(container.identifier, container.group_ids)
 
 
 @app.command()
@@ -64,13 +64,13 @@ def coordinator():
         )
         for group in container_groups
     }
-    for group in containers_by_group:
-        for container in containers_by_group[group]:
-            container.revive()
+    # for group in containers_by_group:
+    #    for container in containers_by_group[group]:
+    #        container.revive()
 
-        if len(containers_by_group[group]) > 1:
-            highest_in_group = containers_by_group[group][-1]
-            elect_leader(highest_in_group.identifier, highest_in_group.group_ids)
+    #    if len(containers_by_group[group]) > 1:
+    #        highest_in_group = containers_by_group[group][-1]
+    #        elect_leader(highest_in_group.identifier, highest_in_group.group_ids)
 
     callback = HeartbeatReviverCallback(containers_by_group)
     hbl = HeartbeatsListener(
