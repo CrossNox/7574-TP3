@@ -70,16 +70,15 @@ class Node(Process):
         if self.storage is not None and self.storage.contains_topic("messages"):
             logger.info("Reprocessing messages from storage")
             with self.storage.recovery_mode(), logging_redirect_tqdm():
-                self.recovery_mode = True
                 for _, v in tqdm(
                     iterable=self.storage.iter_topic("messages"),
                     desc="Recovery going on",
                 ):
+                    message_origin_queue = v.pop("origin_queue")
                     self.handle_new_message(
-                        Message(data=v["data"]), queue_name=v["origin_queue"]
+                        Message(data=v), queue_name=message_origin_queue
                     )
             logger.info("Reprocessing messages from storage done")
-            self.recovery_mode = False
 
         logger.info("Initialization done")
 
@@ -131,9 +130,9 @@ class Node(Process):
 
         return _callback.result
 
-    def put_new_message_out(self, message: Dict) -> None:
+    def put_new_message_out(self, message: Dict, **kwargs) -> None:
         # TODO: decorate message with session id and type (data?)
-        if self.recovery_mode:
+        if self.storage is not None and self.storage.in_recovery_mode:
             return
 
         for exchange in self.exchanges_out:
@@ -143,6 +142,7 @@ class Node(Process):
                         "type": "data",
                         "data": message,
                         "session_id": self.current_session_id,
+                        **kwargs,
                     }
                 )
             )
@@ -210,9 +210,10 @@ class Node(Process):
     def handle_new_message(self, message: Message, queue_name: str):
         self.run_lock.acquire()
         try:
+            message_id = message.get("id") or message.get("data", {}).get("id")
+
             if self.storage is not None and not self.storage.in_recovery_mode:
                 # Have I seen this message for this session id?
-                message_id = message.get("id") or message.get("data", {}).get("id")
                 if message_id is None:
                     raise ValueError("Id can't be found")
                 message_session_id = message["session_id"]
@@ -239,7 +240,7 @@ class Node(Process):
             if self.storage is not None:
                 self.storage.put(
                     message_id,
-                    {"data": message.data, "origin_queue": queue_name},
+                    {**message.data, "origin_queue": queue_name},
                     topic="messages",
                 )
 
