@@ -5,11 +5,21 @@ class Message:
     def __init__(self, data=None):
         self._data = data or {}
 
+    @property
+    def data(self):
+        return self._data
+
     def __getitem__(self, key):
         return self._data[key]
 
     def __setitem__(self, key, value):
         self._data[key] = value
+
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
 
     def __str__(self):
         return str(self._data)

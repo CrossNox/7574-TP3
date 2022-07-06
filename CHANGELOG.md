@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2022-07-05
+### Added
+- Nodes now have an identifier and a storage
+- Storage is recreated from local disk on start
+- Added identifier to EoS messages
+- Added identifier to data messages
+- Dependencies values and messages are now persisted to local storage
+- Duplicate messages are dropped on reception
+- Docker in docker now mounts a data directory to each sub-container
+
+
+## [2.2.0] - 2022-07-05
+### Added
+- Generic Node implementation to handle joins
+- Sentiment joiner
+- Comment filter
+- Post mean sentiment
+- Best meme downloader
+- Student comment filter
+- School Joiner
+
 ## [2.1.0] - 2022-07-05
 ### Added
 - Make tasks compositable

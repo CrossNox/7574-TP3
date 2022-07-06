@@ -4,7 +4,7 @@ from typing import Dict, List, Union, Optional
 import docker
 from lazarus.cfg import cfg
 from lazarus.utils import get_logger, queue_in_name
-from lazarus.constants import DOCKER_NETWORK, DOCKER_IMAGE_NAME
+from lazarus.constants import DOCKER_NETWORK, DEFAULT_DATA_DIR, DOCKER_IMAGE_NAME
 
 logger = get_logger(__name__)
 
@@ -31,6 +31,9 @@ def revive(
             detach=True,
             network=network,
             environment=env,
+            volumes=[
+                f"{cfg.lazarus.datadir()}:{DEFAULT_DATA_DIR}",
+            ],
             remove=True,
         )
         return container
@@ -83,15 +86,17 @@ def list_containers_from_config() -> List[SystemContainer]:
             group_id = k[len("group_") :]
             n_replicas = int(v["replicas"])
 
-            input_group = v["input_group"]
-            input_group_size: int
-            if input_group == "client":
-                input_group_size = 1
-                input_group = v["input_queue"]
-            else:
-                input_group_size = int(config[f"group_{input_group}"]["replicas"])
+            input_group_arg = ""
 
-            input_group_arg = f"--input-group {input_group}:{input_group_size}"
+            for group in v["input_group"].split(" "):
+                group_size: int
+                if group == "client":
+                    group_size = 1
+                    group = v["input_queue"]
+                else:
+                    group_size = int(config[f"group_{group}"]["replicas"])
+
+                input_group_arg += f" --input-group {group}:{group_size}"
 
             output_groups = [x for x in v["output_groups"].split(" ") if x != ""]
             output_groups_sizes = (

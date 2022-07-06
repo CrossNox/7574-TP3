@@ -42,6 +42,9 @@ class PostsMeanSentiment(Transform):
             for k, v in self.sentiment_scores.items()
         ]
 
+    def reset(self):
+        self.sentiment_scores = defaultdict(lambda: {"count": 0, "sum": 0})
+
 
 class PostsMeanScore(Transform):
     def __init__(self):
@@ -55,6 +58,10 @@ class PostsMeanScore(Transform):
 
     def collect(self):
         return [{"posts_mean_score": self.total_posts_scores / self.n_posts_scores}]
+
+    def reset(self):
+        self.n_posts_scores = 0
+        self.total_posts_scores = 0
 
 
 class FilterColumn(Transform):

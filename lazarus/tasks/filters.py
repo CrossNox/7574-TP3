@@ -1,4 +1,5 @@
 import re
+from typing import List
 
 from lazarus.tasks.base import Task
 from lazarus.utils import get_logger
@@ -24,10 +25,14 @@ class FilterPostsScoreAboveMean(Filter):
 
 
 class FilterEdComment(Filter):
+    def __init__(self, columns: List[str]):
+        super().__init__()
+        self.columns = columns
+
     def _execute(self, message):
         msg_body = message["body"].lower()
         if re.search(ED_KWDS_PATTERN, msg_body) is not None:
-            return message
+            return {k: v for k, v in message.items() if k in self.columns}
 
 
 class FilterNanSentiment(Filter):

@@ -40,3 +40,6 @@ class Task(abc.ABC):
     @abc.abstractmethod
     def collect(self) -> Optional[ResultsList]:
         pass
+
+    def reset(self):
+        pass

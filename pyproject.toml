@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lazarus"
-version = "2.2.0"
+version = "2.3.0"
 description = "High Availability Reddit Memes Analyzer, for fun (and passing Distribuidos I)."
 authors = ["CrossNox <imermet@fi.uba.ar>", "FdelMazo <fdelmazo@fi.uba.ar>", "JulianVentura <jventura@fi.uba.ar>"]
 
@@ -14,6 +14,7 @@ types-requests = "^2.27.27"
 pika = "^1.2.1"
 docker = "^5.0.3"
 pyzmq = "^23.2.0"
+tqdm = "^4.64.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.2"

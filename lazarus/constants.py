@@ -27,3 +27,5 @@ DOCKER_IMAGE_NAME: str = "7574-tp3:latest"
 DOCKER_NETWORK: str = "lazarus_net"
 
 EPSILON: float = 0.05
+
+DEFAULT_DATA_DIR: pathlib.Path = pathlib.Path("/data") / "lazarus_data"

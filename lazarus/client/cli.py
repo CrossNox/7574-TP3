@@ -50,7 +50,7 @@ def relay_file(rabbit_host: str, exchange: str, file_path: Path, groups: List[st
             for exch in exchanges:
                 exch.push(msg)
 
-        m = {"type": EOS, "session_id": 1}  # TODO: Hardcoded
+        m = {"type": EOS, "session_id": 1, "id": "client"}  # TODO: Hardcoded
         for exch in exchanges:
             exch.broadcast(Message(data=m))
 
