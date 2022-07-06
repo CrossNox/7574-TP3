@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added identifier to data messages
 - Dependencies values and messages are now persisted to local storage
 - Duplicate messages are dropped on reception
+- Docker in docker now mounts a data directory to each sub-container
 
 
 ## [2.2.0] - 2022-07-05
