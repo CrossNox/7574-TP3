@@ -118,14 +118,14 @@ class Server:
 
             self.current_session = self.on_creation_session
 
-        # TODO: This should not be hardcoded
+        # TODO: This should not be hardcoded, it's just an example of the schema
         session_data = {
             "session_id": self.current_session,
-            "data_address": "rabbitmq",
+            "address": "rabbitmq",
             "posts_exchange": "posts",
             "comments_exchange": "comments",
-            "posts_consumer_count": 3,
-            "comments_consumer_count": 3,
+            "posts_groups": ["filter_columns_averager:3"],
+            "comments_groups": ["filter_comments:3"],
         }
 
         # TODO: Persist here
