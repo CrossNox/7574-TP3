@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2022-07-06
+### Removed
+- `ed-comments` no longer receives a list of columns to keep, as to preserve th
+  filter semantics
+- `filter-comments` no longer receives a list of columns to keep. This could be
+  reintroduced.
+
+### Changed
+- Moved `join` as a top level command in the CLI
+- Pika heartbeat set to 300 seconds
+- Tasks now receive the name of the queue where the message was fetched from,
+  additionally to the message itself
+
+### Fixed
+- Commented out the leader election which was introducing a deadlock
+- Bug on message identifiers on node
+
+### Added
+- `collector` command on the CLI
+- `Collector` task
+- Messages are no longer required to carry an `id` field. If missing, it is built
+  by hashing the message.
+- Script to monitor all containers
+
 ## [2.3.1] - 2022-07-06
 ### Fixed
 - Bug in node
