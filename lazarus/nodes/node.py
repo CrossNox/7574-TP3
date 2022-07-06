@@ -211,11 +211,11 @@ class Node(Process):
         self.run_lock.acquire()
         try:
             message_id = message.get("id") or message.get("data", {}).get("id")
+            if message_id is None:
+                raise ValueError("Id can't be found")
 
             if self.storage is not None and not self.storage.in_recovery_mode:
                 # Have I seen this message for this session id?
-                if message_id is None:
-                    raise ValueError("Id can't be found")
                 message_session_id = message["session_id"]
                 message_type = message["type"]
                 message_id = f"{message_session_id}_{message_type}_{message_id}"
@@ -256,16 +256,6 @@ class Node(Process):
             if message_out is not None:
                 self.put_new_message_out(message_out)
 
-            try:
-                message.ack()
-            except NotImplementedError:
-                if self.storage is not None and self.storage.in_recovery_mode:
-                    pass
-                else:
-                    raise
-
-            self.run_lock.release()
-
         except IncorrectSessionId:
             logger.info(
                 "Dropped message due to bad session id (%s vs %s)",
@@ -275,9 +265,19 @@ class Node(Process):
         except Exception:
             logger.error("Unhandled exception with message %s", message, exc_info=True)
         finally:
+            try:
+                message.ack()
+            except NotImplementedError:
+                if self.storage is not None and self.storage.in_recovery_mode:
+                    pass
+                else:
+                    raise
+
             self.processed += 1
             if self.processed != 0 and (self.processed % 100) == 0:
                 logger.info("Processed %s messages so far", self.processed)
+
+            self.run_lock.release()
 
     # TODO: Handlear sigterm con un queue.close()
     def run(self):
