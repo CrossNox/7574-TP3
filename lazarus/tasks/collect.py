@@ -10,7 +10,7 @@ class Collector(Task):
     def __init__(self, keep: Dict[str, str], *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.keep = keep
-        self.queue_messages = {}
+        self.queue_messages: Dict[str, Dict] = {}
 
     def __call__(self, message, queue_name):
         if queue_name not in self.queue_messages:

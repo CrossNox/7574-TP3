@@ -2,9 +2,10 @@ import abc
 from enum import Enum
 from typing import Optional
 
-from lazarus.mom.message import Message
-from lazarus.utils import get_logger
 import pika
+
+from lazarus.utils import get_logger
+from lazarus.mom.message import Message
 
 logger = get_logger(__name__)
 

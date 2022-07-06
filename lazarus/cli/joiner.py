@@ -3,13 +3,13 @@ from typing import List
 import typer
 
 from lazarus.cfg import cfg
-from lazarus.constants import DEFAULT_DATA_DIR
-from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.mom.queue import Queue
 from lazarus.nodes.node import Node
-from lazarus.sidecar import HeartbeatSender
-from lazarus.storage.local import LocalStorage
 from lazarus.tasks.joiner import Joiner
+from lazarus.sidecar import HeartbeatSender
+from lazarus.constants import DEFAULT_DATA_DIR
+from lazarus.storage.local import LocalStorage
+from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.utils import (
     get_logger,
     ensure_path,
@@ -28,7 +28,10 @@ app = typer.Typer()
 def joiner(
     node_id: int = typer.Argument(..., help="The node id"),
     merge_keys: List[str] = typer.Argument(..., help="The keys to merge on the tables"),
-    group_id: str = typer.Option(..., help="The id of the consumer group",),
+    group_id: str = typer.Option(
+        ...,
+        help="The id of the consumer group",
+    ),
     input_group: List[str] = typer.Option(
         ..., help="<name>:<n_subscribers> of the input groups"
     ),
@@ -80,11 +83,12 @@ def joiner(
     node = Node(
         identifier=node_identifier,
         callback=Joiner,
-        **merge_keys_kwargs,
         queue_in=queues_in,
         exchanges_out=exchanges_out,
         storage=storage,
         producers=n_eos,
+        dependencies=None,
+        **merge_keys_kwargs,
     )
 
     node.start()

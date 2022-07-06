@@ -15,7 +15,9 @@ class Joiner(Task):
 
     def __call__(self, message: Dict, queue_name: str) -> Optional[Dict]:
         logger.info(
-            "Got message %s, from q %s", message, queue_name,
+            "Got message %s, from q %s",
+            message,
+            queue_name,
         )
         message_key = message[self.merge_keys[queue_name]]
         if message_key not in self.data:
