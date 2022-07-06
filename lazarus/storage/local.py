@@ -2,7 +2,6 @@ import json
 from pathlib import Path
 from io import TextIOWrapper
 from typing import Dict, Optional
-from collections import defaultdict
 from contextlib import contextmanager
 
 from lazarus.utils import get_logger
@@ -45,8 +44,8 @@ class LocalStorage(BaseStorage):
     def __init__(self, data_folder: Path):
         self.data_dir = data_folder
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        self.data: Dict[TopicType, Dict[KeyType, MessageType]] = defaultdict(dict)
-        self.data_files: Dict[TopicType, TextIOWrapper] = {}
+        self.data: Dict[TopicType, Dict[KeyType, MessageType]] = dict()
+        self.data_files: Dict[TopicType, TextIOWrapper] = dict()
         self._recovery_mode = False  # TODO: move this to the base class
 
     @property
@@ -67,7 +66,10 @@ class LocalStorage(BaseStorage):
             v.close()
 
     def contains(self, key: KeyType, topic: Optional[TopicType] = None):
-        return key in self.data[topic]
+        try:
+            return key in self.data[topic]
+        except KeyError:
+            return False
 
     def contains_topic(self, topic: TopicType):
         return topic in self.data
@@ -94,6 +96,9 @@ class LocalStorage(BaseStorage):
             )
         )
         self.data_files[topic].write("\n")
+
+        if topic not in self.data:
+            self.data[topic] = {}
 
         self.data[topic][key] = message
 
