@@ -222,7 +222,9 @@ class Node(Process):
                     raise ValueError("Id can't be found or built")
             message_session_id = message["session_id"]
             message_type = message["type"]
-            message_identifier = f"{message_session_id}_{message_type}_{message_id}"
+            message_identifier = (
+                f"{message_session_id}_{message_type}_{queue_name}_{message_id}"
+            )
 
             if self.storage is not None and not self.storage.in_recovery_mode:
                 # Have I seen this message for this session id?

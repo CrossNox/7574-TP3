@@ -16,8 +16,6 @@ class BestMemeDownloader(Task):
         self.nprocessed = 0
 
     def __call__(self, msg, queue_name):
-        logger.debug("BestMemeDownloader :: Got %s", msg)
-
         if msg["url"] is None or msg["url"] == "":
             return
 
