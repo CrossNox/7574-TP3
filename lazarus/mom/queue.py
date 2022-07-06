@@ -1,9 +1,9 @@
-from typing import Callable
 from threading import Event, Thread
+from typing import Callable
 
-from lazarus.utils import get_logger
 from lazarus.mom.message import Message
 from lazarus.mom.rabbit import RabbitConnection
+from lazarus.utils import get_logger
 
 logger = get_logger(__name__)
 

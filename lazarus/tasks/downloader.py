@@ -1,5 +1,5 @@
-import heapq
 import base64
+import heapq
 
 import requests
 
@@ -15,7 +15,7 @@ class BestMemeDownloader(Task):
         self.top_memes = []
         self.nprocessed = 0
 
-    def __call__(self, msg):
+    def __call__(self, msg, queue_name):
         if msg["url"] is None or msg["url"] == "":
             return
 

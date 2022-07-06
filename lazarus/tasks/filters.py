@@ -1,9 +1,9 @@
 import re
 from typing import List
 
+from lazarus.constants import ED_KWDS_PATTERN
 from lazarus.tasks.base import Task
 from lazarus.utils import get_logger
-from lazarus.constants import ED_KWDS_PATTERN
 
 logger = get_logger(__name__)
 
@@ -18,7 +18,7 @@ class FilterPostsScoreAboveMean(Filter):
         super().__init__()
         self.mean = posts_mean_score
 
-    def __call__(self, message):
+    def __call__(self, message, queue_name):
         msg_score = float(message["score"])  # TODO: WHY is this a string
         if msg_score >= self.mean:
             return message
@@ -29,14 +29,14 @@ class FilterEdComment(Filter):
         super().__init__(*args, **kwargs)
         self.columns = set(columns)
 
-    def __call__(self, message):
+    def __call__(self, message, queue_name):
         msg_body = message["body"].lower()
         if re.search(ED_KWDS_PATTERN, msg_body) is not None:
             return {k: v for k, v in message.items() if k in self.columns}
 
 
 class FilterNanSentiment(Filter):
-    def __call__(self, message):
+    def __call__(self, message, queue_name):
         try:
             float(message["sentiment"])
             return message
@@ -45,7 +45,7 @@ class FilterNanSentiment(Filter):
 
 
 class FilterNullURL(Filter):
-    def __call__(self, message):
+    def __call__(self, message, queue_name):
         message_url = message["url"]
         if message_url is not None and message_url != "":
             return message
@@ -59,7 +59,7 @@ class FilterUniqIDs(Filter):
     def collect(self):
         return list(self.ids)
 
-    def __call__(self, message):
+    def __call__(self, message, queue_name):
         new_id = message["id"]
         if new_id is not None:
             self.ids.add(new_id)

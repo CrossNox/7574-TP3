@@ -9,7 +9,7 @@ class Joiner(Task):
         self.merge_key = merge_key
         self.data: Dict[str, Dict] = {}
 
-    def __call__(self, message: Dict) -> Optional[Dict]:
+    def __call__(self, message: Dict, queue_name: str) -> Optional[Dict]:
         message_key = message[self.merge_key]
         if message_key not in self.data:
             self.data[message_key] = message
