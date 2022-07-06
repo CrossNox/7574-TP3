@@ -29,6 +29,8 @@ services:
     command: coordinator
     networks:
       - lazarus_net
+    environment:
+      LAZARUS_DATADIR: ${LAZARUS_DATADIR}
     volumes:
       - ../settings.ini:/app/settings.ini:ro
       - type: bind

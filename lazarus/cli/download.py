@@ -2,12 +2,22 @@ from typing import List
 
 import typer
 
+from lazarus.cfg import cfg
 from lazarus.mom.queue import Queue
 from lazarus.nodes.node import Node
 from lazarus.sidecar import HeartbeatSender
+from lazarus.constants import DEFAULT_DATA_DIR
+from lazarus.storage.local import LocalStorage
 from lazarus.tasks.downloader import BestMemeDownloader
 from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
-from lazarus.utils import get_logger, parse_group, exchange_name, queue_in_name
+from lazarus.utils import (
+    get_logger,
+    ensure_path,
+    parse_group,
+    build_node_id,
+    exchange_name,
+    queue_in_name,
+)
 
 logger = get_logger(__name__)
 
@@ -53,10 +63,19 @@ def best_meme_download(
         for output_group_id, output_group_size in parsed_output_groups
     ]
 
+    node_identifier: str = build_node_id(group_id, node_id)
+
+    storage = LocalStorage.load(
+        cfg.lazarus.data_dir(cast=ensure_path, default=DEFAULT_DATA_DIR)
+        / node_identifier
+    )
+
     node = Node(
+        identifier=node_identifier,
         callback=BestMemeDownloader,
         queue_in=queue_in,
         exchanges_out=exchanges_out,
+        storage=storage,
         producers=input_group_size,
     )
     node.start()
