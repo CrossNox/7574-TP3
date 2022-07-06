@@ -182,7 +182,7 @@ class Node(Process):
                 )
             )
 
-    def handle_eos(self, eos_msg, queue_name):
+    def handle_eos(self, _eos_msg, queue_name):
         # TODO: save the identifier instead of just adding 1
         self.received_eos[queue_name] += 1
 
@@ -199,13 +199,6 @@ class Node(Process):
 
             self.current_session_id = None
             self.n_eos = 0
-        try:
-            eos_msg.ack()
-        except NotImplementedError:
-            if self.storage is not None and self.storage.in_recovery_mode:
-                pass
-            else:
-                raise
 
     def handle_new_message(self, message: Message, queue_name: str):
         self.run_lock.acquire()
@@ -216,6 +209,7 @@ class Node(Process):
 
             if self.storage is not None and not self.storage.in_recovery_mode:
                 # Have I seen this message for this session id?
+                # Drop duplicates
                 message_session_id = message["session_id"]
                 message_type = message["type"]
                 message_id = f"{message_session_id}_{message_type}_{message_id}"
@@ -226,16 +220,7 @@ class Node(Process):
                         "Message %s already seen (present in storage). Dropping.",
                         message,
                     )
-
-                    try:
-                        # Duplicate messages require no processing
-                        message.ack()
-                        return
-                    except NotImplementedError:
-                        if self.storage is not None and self.storage.in_recovery_mode:
-                            return
-                        else:
-                            raise
+                    return
 
             if self.storage is not None:
                 self.storage.put(
@@ -248,7 +233,6 @@ class Node(Process):
 
             if self.is_eos(message):
                 self.handle_eos(message, queue_name)
-                self.run_lock.release()
                 return
 
             message_out = self.callback(message["data"])
