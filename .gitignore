@@ -150,3 +150,5 @@ data/*.csv
 lazarus_data/
 
 outputs
+
+*.ipynb
