@@ -1,97 +1,34 @@
-from typing import Dict, Optional, List
-import enum
 import zmq
-import json
-import time
+import shelve
+from lazarus.common.protocol import ServerMsg, ClientMsg, MessageType, NO_SESSION
+
 
 #TODO: Cambiar prints por logger
 
-class MessageType(enum.Enum):
-    # Start New Session
-    SYN = 0 # Enviado por el cliente para solicitar nueva sesión
-    SYNACK = 1 # Enviado por el servidor para aceptar solicitud del cliente (requiere confirmación)
-    SYNCHECK = 2 # Enviado por el cliente para confirmar sesión
-    CHECKACK = 3 # Enviado por el servidor para confirmar sesión al cliente
-    # Ask for result
-    RESULT = 4 # Enviado por el cliente para solicitar resultado al servidor
-    RESRESP = 5 # Enviado por el servidor, con los resultados computados
-    NOTDONE = 6 # Enviado por el servidor, para indicar resultados no computados
-    # Finish current session
-    FIN = 7 # Enviado por el cliente para solicitar fin de sesión al servidor
-    FINACK = 8 # Enviado por el servidor, indicando que la sesión ha finalizado
-    # Errors
-    INVALMSG = 9 # Enviado por el servidor, para indicar que un mensaje es inválido
-    NOTAVAIL = 10 # Enviado por el servidor, para indicar que no se encuentra disponible
-    INVALSESSION = 11 # Enviado por el servidor, para indicar que el session_id enviado no es correcto
-    # Redirection
-    PROBE = 12 # Enviado por el cliente, para verificar que el servidor pueda recibir peticiones (que sea el lider)
-    REDIRECT = 13 # Enviado por el servidor, para indicar el address del nodo disponible para recibir peticiones
-    PROBEACK = 14 # Enviado por el servidor, para indicar que se encuentra disponible para recibir peticiones
+#TODO: This is only for testing purposes
+def explode():
+    exit()
 
-NO_SESSION = -1 #TODO: Constantes a constants.py
-
-class ProtocolMessage:
-    def __init__(self, mtype: MessageType):
-        self.mtype = mtype
-
-class ClientMsg(ProtocolMessage):
-    def __init__(
-        self,
-        mtype: MessageType,
-        session_id: int = NO_SESSION
-    ):
-        super().__init__(mtype)
-        self.session_id = session_id
-
-    def encode(self) -> str:
-        m = {
-            'type': self.mtype.value,
-            'session_id': self.session_id
-        }
-        return json.dumps(m)
-
-    @classmethod
-    def decode(cls, data: str):
-        d_data = json.loads(data)
-        m = ClientMsg(MessageType(d_data['type']), d_data['session_id'])
-        return m
-
-class ServerMsg(ProtocolMessage):
-    def __init__(
-        self,
-        mtype: MessageType,
-        payload: Optional[Dict] = None
-    ):
-        super().__init__(mtype)
-        self.payload = payload or {}
-
-    def encode(self) -> str:
-        m = {
-            'type': self.mtype.value,
-            'payload': self.payload
-        }
-        return json.dumps(m)
-
-    @classmethod
-    def decode(cls, data: str):
-        d_data = json.loads(data)
-        m = ServerMsg(MessageType(d_data['type']), d_data['payload'])
-        return m
-
-import shelve
 
 class Server:
     # address -> localhost:8000
-    def __init__(self, port: str):
+    def __init__(
+        self, 
+        port: str, 
+        is_leader: bool
+    ):
         self.context = zmq.Context.instance()  # type: ignore
+        self.context.setsockopt(zmq.LINGER, 0)
         self.rep = self.context.socket(zmq.REP)
         self.rep.bind(f"tcp://*:{port}")
         self.current_session = NO_SESSION
-        self.completed_sessions = 0                                                     #TODO: MANEJAR EXCEPCIONES Y FALLOS DE CONEXIÓN DEL LADO DEL SERVER
+        self.completed_sessions = 0 
         self.on_creation_session = 0
         self.work_done_count = 0
-        self.db = shelve.open('/app/db-data/server-db', writeback=True)
-        self.load_state()
+        self.is_leader = is_leader
+        if is_leader:
+            self.db = shelve.open('/app/db-data/server-db', writeback=True)
+            self.load_state()
 
         print(f"Server started on {port}")
 
@@ -133,6 +70,15 @@ class Server:
 
 
     def __handle_new_message(self, msg: ClientMsg):
+
+        if not self.is_leader:
+            leader = {
+                'host': 'server1'
+            }
+            self.rep.send_string(ServerMsg(MessageType.REDIRECT, payload=leader).encode())
+            return
+
+
         handlers = {
             MessageType.PROBE: self.__handle_probe,
             MessageType.SYN: self.__handle_syn,
@@ -169,17 +115,14 @@ class Server:
 
     def __handle_syncheck(self, msg: ClientMsg):
         print("Received SYNCHECK")
-        # Now, we received confirmation, so we will create the session
-        if self.current_session != NO_SESSION:
-            self.rep.send_string(ServerMsg(MessageType.INVALSESSION).encode())
-            return
+        # Queremos que si el id del mensaje coincide con el de la sesión actual, confirmarle
+        if self.current_session != msg.session_id:
+            if self.current_session != NO_SESSION or msg.session_id != self.on_creation_session:
+                self.rep.send_string(ServerMsg(MessageType.INVALSESSION).encode())
+                return
 
-        if msg.session_id != self.on_creation_session:
-            self.rep.send_string(ServerMsg(MessageType.INVALSESSION).encode())
-            return
+            self.current_session = self.on_creation_session
 
-        # Now, let's send_string that data to disk!
-        self.current_session = self.on_creation_session
 
         # TODO: This should not be hardcoded
         session_data = {
@@ -245,163 +188,3 @@ class Server:
                 'http://veryfunny/teaching.com',
             ]
         }
-
-class Client:
-    # address -> localhost:8000
-    def __init__(self, addresses: List[str]):
-        self.addresses = addresses
-        self.context = zmq.Context.instance()  # type: ignore
-        self.session_id = NO_SESSION
-        self.req = None
-
-
-    def run(self):
-        self.__start_new_session()
-        print("Writing data on queues...")
-        time.sleep(10)
-        # Here we should start sending comments and posts to queues
-        # When we are done with that, we start asking server for the results
-        self.__get_computation_result()
-        self.__finish_session()
-
-    def __close_connection(self):
-        if self.req != None:
-            self.req.close()
-            self.req = None
-
-    def __start_new_session(self):
-        while True:
-            print("Starting new session on server...")
-            try:
-                self.__connect_to_server()
-                resp = self.__send_and_wait_response(ClientMsg(MessageType.SYN, NO_SESSION), retry=True)
-
-                self.session_id = int(resp.payload['session_id'])
-                resp = self.__send_and_wait_response(ClientMsg(MessageType.SYNCHECK, self.session_id), retry=True)
-
-                if resp.mtype != MessageType.CHECKACK:
-                    self.__log_response(resp)
-                    self.__close_connection()
-                    continue
-
-                # TODO: Inicializar estructuras de rabbit
-                print("New session has been created")
-                return
-            except Exception:
-                pass
-
-    def __get_computation_result(self):
-        while True:
-            print("Asking for computation results...")
-            resp = self.__send_and_wait_response(ClientMsg(MessageType.RESULT, self.session_id), retry=True)
-
-            if resp.mtype != MessageType.RESRESP:
-                print("Computation hasn't finished yet")
-                self.__close_connection()
-                time.sleep(1)
-                self.__connect_to_server()
-                continue
-
-            data = resp.payload
-
-            print(f"Score Avg: {data['post_score_avg']}")
-            print(f"Best Meme: {data['best_meme']}")
-            print("Education Memes:")
-            for meme in data['education_memes']:
-                print(f" - {meme}")
-
-            return
-
-    def __finish_session(self):
-        while True:
-            print("Finishing session with server")
-
-            resp = self.__send_and_wait_response(ClientMsg(MessageType.FIN, self.session_id), retry=True)
-
-            if resp.mtype != MessageType.FINACK:
-                print("Caution: Server do not recognize current session!")
-                self.__close_connection()
-                time.sleep(1)
-                self.__connect_to_server()
-                continue
-
-            print("Session with server finished")
-
-            return
-
-    def __connect_to_server(self):
-        tries = 0
-        while True:
-            for address in self.addresses:
-                try:
-                    self.__connect(address)
-                    return
-                except Exception as e:
-                    print(f"Connection with server failed on address {address}")
-                    print(e)
-                    tries += 1
-                    if tries == len(self.addresses):
-                        tries = 0
-                        #TODO: En realidad esto significa que el server es not-available, no debería pasar
-                        # Si llega a quedar, deberiamos levantar el valor de config, no hardcodearlo
-                        time.sleep(1)
-
-    def __connect(self, address):
-        while True:
-            print(f"Trying to connect with server on address {address}")
-            self.__close_connection()
-            self.req = self.context.socket(zmq.REQ)
-            self.req.connect(f"tcp://{address}")
-            self.req.send_string(ClientMsg(MessageType.PROBE, NO_SESSION).encode())
-            m = self.req.recv_string()
-            resp = ServerMsg.decode(m)
-            if resp.mtype == MessageType.REDIRECT:
-                address = resp.payload['address']
-                self.__close_connection()
-                print(f"Being redirected to address {address}")
-                continue
-            elif resp.mtype == MessageType.NOTAVAIL:
-                print("Server is not available, we wait...")
-                time.sleep(1) # TODO: Change
-                continue
-            elif resp.mtype == MessageType.PROBEACK:
-                print(f"Connected with server on address {address}")
-                break
-            else:
-                raise Exception("Could not connect to server address")
-
-
-    def __send_and_wait_response(self, msg: ClientMsg, retry=True) -> ServerMsg:
-        while True:
-            try:
-                self.req.send_string(msg.encode())
-                m = self.req.recv_string()
-                resp = ServerMsg.decode(m)
-                if not retry:
-                    return resp
-
-                if resp.mtype == MessageType.NOTAVAIL:
-                    self.__log_response(resp)
-                    self.__close_connection()
-                    time.sleep(5) #TODO: Change
-                    self.__connect_to_server()
-                elif resp.mtype == MessageType.REDIRECT:
-                    self.__log_response(resp)
-                    self.__close_connection()
-                    address = msg.payload['address']
-                    self.__connect(address)
-                else:
-                    return resp
-
-            except Exception: # TODO: En realidad acá deberíamos reconectar sólo si se rompió la conexión, para eso habría que leer la docu de zmq
-                if not retry:
-                    raise
-                self.__connect_to_server()
-
-    def __log_response(self, resp: ServerMsg):
-        if resp.mtype == MessageType.INVALMSG:
-            print("Invalid msg sent to server")
-        elif resp.mtype == MessageType.NOTAVAIL:
-            print("Server is not available right now")
-        elif resp.mtype == MessageType.INVALSESSION:
-            print("Session is incorrect")
