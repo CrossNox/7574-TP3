@@ -187,7 +187,7 @@ class Node(Process):
         self.received_eos[queue_name] += 1
 
         logger.info("Received %s/%s EOS", self.received_eos, self.n_eos)
-        if all(self.received_eos[k] == v for k, v in self.n_eos.values()):
+        if all(self.received_eos[k] == v for k, v in self.n_eos.items()):
             self.processed = 0
             collected_results = self.callback.collect() or []
             logger.info("Collected %s results", len(collected_results))

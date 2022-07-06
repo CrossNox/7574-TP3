@@ -1,4 +1,6 @@
-from typing import Dict, List
+import itertools
+import operator as ops
+from typing import List
 
 import typer
 
@@ -42,27 +44,22 @@ def main(
 
 
 class HeartbeatReviverCallback:
-    def __init__(self, containers_by_group: Dict[str, List[SystemContainer]]):
-        all_containers = [
-            c for containers in containers_by_group.values() for c in containers
-        ]
-        self.containers = {c.identifier: c for c in all_containers}
+    def __init__(self, containers: List[SystemContainer]):
+        self.containers = {c.identifier: c for c in containers}
 
     def __call__(self, host, port):
-        self.containers[host].revive()
         container = self.containers[host]
-        elect_leader(container.identifier, container.group_ids)
+        container.revive()
 
 
 @app.command()
 def coordinator():
     containers = list_containers_from_config()
-    container_groups = set([c.group for c in containers])
+
+    keyfunc = ops.attrgetter("group")
     containers_by_group = {
-        group: sorted(
-            [c for c in containers if c.group == group], key=lambda x: x.identifier
-        )
-        for group in container_groups
+        k: list(g)
+        for k, g in itertools.groupby(sorted(containers, key=keyfunc), key=keyfunc)
     }
     for group in containers_by_group:
         for container in containers_by_group[group]:
@@ -72,7 +69,7 @@ def coordinator():
             highest_in_group = containers_by_group[group][-1]
             elect_leader(highest_in_group.identifier, highest_in_group.group_ids)
 
-    callback = HeartbeatReviverCallback(containers_by_group)
+    callback = HeartbeatReviverCallback(containers)
     hbl = HeartbeatsListener(
         [(container.identifier, DEFAULT_HEARTBEAT_PORT) for container in containers],
         callback,
