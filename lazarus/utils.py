@@ -5,11 +5,11 @@ import logging
 import pathlib
 from typing import Tuple, Callable
 
-import docker
+import pika
 import typer
 import urllib3
 
-import pika
+import docker
 
 DEFAULT_PRETTY = False
 

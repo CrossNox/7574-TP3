@@ -1,22 +1,21 @@
 import json
-from pathlib import Path
-import random
 import time
+import random
 from typing import List
+from pathlib import Path
 
 import zmq
 
 from lazarus.cfg import cfg
 from lazarus.client.file_provider import FileProvider
+from lazarus.utils import get_logger, ascii_to_binary
 from lazarus.common.protocol import ClientMsg, ServerMsg, MessageType
 from lazarus.constants import (
     NO_SESSION,
-    DEFAULT_MEME_PATH,
     DEFAULT_SERVER_PORT,
     DEFAULT_PROTOCOL_TIMEOUT,
     DEFAULT_PROTOCOL_RETRY_SLEEP,
 )
-from lazarus.utils import get_logger, ascii_to_binary, ensure_file_directory
 
 RETRY_SLEEP: int = cfg.protocol_retry_sleep(
     default=DEFAULT_PROTOCOL_RETRY_SLEEP, cast=int
@@ -123,7 +122,7 @@ class Client:
                 logger.info(f"New session has been created with id {self.session_id}")
 
                 return resp
-            except:
+            except:  # pylint:disable=bare-except
                 logger.error("Exception trying to connect to server.", exc_info=True)
 
     def __get_computation_result(self):

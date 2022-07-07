@@ -8,7 +8,7 @@ from lazarus.utils import config_logging
 def run_client(hosts: List[str]):
     # NOTE: This tests were created only to test the protocol
     # so they do not support data reading and transfer, this is a mock
-    client = Client(hosts, "posts.csv", "comments.csv")
+    client = Client(hosts, "posts.csv", "comments.csv", "/tmp/memes")
     client.run()
 
 

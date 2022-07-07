@@ -1,18 +1,12 @@
-from pathlib import Path
 from typing import List
+from pathlib import Path
 
 import typer
 
 from lazarus.cfg import cfg
 from lazarus.client.client import Client
 from lazarus.constants import DEFAULT_MEME_PATH
-from lazarus.utils import (
-    DEFAULT_PRETTY,
-    DEFAULT_VERBOSE,
-    get_logger,
-    ensure_path,
-    config_logging,
-)
+from lazarus.utils import DEFAULT_PRETTY, DEFAULT_VERBOSE, get_logger, config_logging
 
 logger = get_logger(__name__)
 
