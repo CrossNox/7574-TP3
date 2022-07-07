@@ -1,10 +1,9 @@
 import heapq
-import base64
 
 import requests
 
 from lazarus.tasks.base import Task
-from lazarus.utils import get_logger
+from lazarus.utils import get_logger, binary_to_ascii
 
 logger = get_logger(__name__)
 
@@ -43,8 +42,7 @@ class BestMemeDownloader(Task):
                 _, _, meme = heapq.heappop(self.top_memes)
                 res = requests.get(meme["url"])
                 res.raise_for_status()
-                b64 = base64.b64encode(res.content)
-                response["meme"] = b64.decode("ascii")
+                response["meme"] = binary_to_ascii(res.content)
                 return [response]
             except requests.HTTPError:
                 pass

@@ -60,6 +60,7 @@ services:
     volumes:
       - ../settings.ini:/app/settings.ini:ro
       - ../data:/data:ro
+      - ../meme-downloads:/meme-downloads:rw
     entrypoint: poetry run virgilius -vv /data/the-reddit-irl-dataset-posts-reduced.csv /data/the-reddit-irl-dataset-comments-reduced.csv server_0
     depends_on:
       rabbitmq:

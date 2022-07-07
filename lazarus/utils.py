@@ -1,14 +1,15 @@
 """Utils file."""
 
+import base64
 import logging
 import pathlib
 from typing import Tuple, Callable
 
-import docker
+import pika
 import typer
 import urllib3
 
-import pika
+import docker
 
 DEFAULT_PRETTY = False
 
@@ -94,6 +95,13 @@ def ensure_path(path):
     return path
 
 
+def ensure_file_directory(path):
+    """Create a parent directories for a file's path if they do not exist."""
+    path = pathlib.Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def coalesce(f: Callable, log: bool = False) -> Callable:
     """Wrap a function to return None on raised exceptions.
 
@@ -119,6 +127,16 @@ def coalesce(f: Callable, log: bool = False) -> Callable:
             return None
 
     return _inner
+
+
+def binary_to_ascii(data: bytes) -> str:
+    b64 = base64.b64encode(data)
+    return b64.decode("ascii")
+
+
+def ascii_to_binary(data: str) -> bytes:
+    b64 = data.encode("ascii")
+    return base64.b64decode(b64)
 
 
 def exchange_name(group_id: str, output_group_id: str) -> str:

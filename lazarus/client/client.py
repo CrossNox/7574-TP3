@@ -1,20 +1,21 @@
-from pathlib import Path
-import random
 import time
+import random
 from typing import List
+from pathlib import Path
 
 import zmq
 
 from lazarus.cfg import cfg
 from lazarus.client.file_provider import FileProvider
 from lazarus.common.protocol import ClientMsg, ServerMsg, MessageType
+from lazarus.utils import get_logger, ascii_to_binary, ensure_file_directory
 from lazarus.constants import (
     NO_SESSION,
+    DEFAULT_MEME_PATH,
     DEFAULT_SERVER_PORT,
     DEFAULT_PROTOCOL_TIMEOUT,
     DEFAULT_PROTOCOL_RETRY_SLEEP,
 )
-from lazarus.utils import get_logger
 
 RETRY_SLEEP: int = cfg.protocol_retry_sleep(
     default=DEFAULT_PROTOCOL_RETRY_SLEEP, cast=int
@@ -24,13 +25,17 @@ SERVER_PORT: int = cfg.server_port(default=DEFAULT_SERVER_PORT, cast=int)
 
 TIMEOUT: int = cfg.server_port(default=DEFAULT_PROTOCOL_TIMEOUT, cast=int) * 10000
 
+MEME_PATH: Path = cfg.meme_path(default=DEFAULT_MEME_PATH, cast=ensure_file_directory)
 
 logger = get_logger(__name__)
 
 
 class Client:
     def __init__(
-        self, hosts: List[str], posts_path: Path, comments_path: Path,
+        self,
+        hosts: List[str],
+        posts_path: Path,
+        comments_path: Path,
     ):
         self.hosts = hosts
         self.posts_path = posts_path
@@ -129,14 +134,16 @@ class Client:
 
             data = resp.payload
 
-            # TODO: Delete this
-            logger.info("data: %s", data)
             logger.info(f"Score Avg: {data['posts_score_avg']}")
-            logger.info(f"Best Meme: {data['best_meme']}")
             logger.info("Education Memes:")
             for meme in data["education_memes"]:
                 logger.info(f" - {meme}")
 
+            best_meme = ascii_to_binary(data["best_meme"])
+            logger.info(f"Downloading best meme to {MEME_PATH}")
+
+            with open(MEME_PATH, "wb") as meme_file:
+                meme_file.write(best_meme)
             return
 
     def __finish_session(self):
