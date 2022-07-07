@@ -23,7 +23,7 @@ RETRY_SLEEP: int = cfg.protocol_retry_sleep(
 
 SERVER_PORT: int = cfg.server_port(default=DEFAULT_SERVER_PORT, cast=int)
 
-TIMEOUT: int = cfg.server_port(default=DEFAULT_PROTOCOL_TIMEOUT, cast=int) * 10000
+TIMEOUT: int = cfg.server_port(default=DEFAULT_PROTOCOL_TIMEOUT, cast=int) * 1000
 
 
 logger = get_logger(__name__)

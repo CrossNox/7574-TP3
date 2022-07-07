@@ -81,18 +81,18 @@ def server(
     group = [build_node_id(group_identifier, i) for i in range(group_size)]
 
     hosts = [(h, DEFAULT_HEARTBEAT_PORT) for h in filter(lambda x: x != node_id, group)]
+    hbs = HeartbeatSender()
+    hbl = HeartbeatsListener(
+        hosts, ElectLeader(node_id, group), sleep_time=BULLY_TIMEOUT_MS // 1000
+    )
+
+    hbs.start()
+    hbl.start()
 
     lel = LeaderElectionListener(node_id, group)
     lel.start()
 
     elect_leader(node_id, group)
-
-    hbs = HeartbeatSender()
-    hbl = HeartbeatsListener(
-        hosts, ElectLeader(node_id, group), sleep_time=BULLY_TIMEOUT_MS // 1000
-    )
-    hbs.start()
-    hbl.start()
 
     new_server = Server(
         server_id,
