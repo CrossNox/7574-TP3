@@ -82,12 +82,11 @@ class ResultCollector:
     def ack(self):
         self.msg_collected.set()
 
-    def __format_result(self, _res):
+    def __format_result(self, res):
         # Here we should format data to something like this
-        res = {
-            "posts_score_avg": 123.54,
-            "best_meme": "asdpfijsa",
-            "education_memes": ["meme1", "meme2j", "meme3"],
+        data = res["data"]
+        return {
+            "posts_score_avg": data["average_posts_score"],
+            "best_meme": data["best_meme_download"],
+            "education_memes": data["education_joiner"],
         }
-
-        return res

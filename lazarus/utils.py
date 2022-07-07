@@ -94,7 +94,7 @@ def ensure_path(path):
     return path
 
 
-def coalesce(f: Callable) -> Callable:
+def coalesce(f: Callable, log: bool = False) -> Callable:
     """Wrap a function to return None on raised exceptions.
 
     This function makes functions that might raise exception safe for `map`.
@@ -114,7 +114,8 @@ def coalesce(f: Callable) -> Callable:
         try:
             return f(*args, **kwargs)
         except:  # pylint: disable=bare-except  # noqa: E722
-            utils_logger.error(f"error calling {f.__name__}", exc_info=True)
+            if log:
+                utils_logger.error(f"error calling {f.__name__}", exc_info=True)
             return None
 
     return _inner

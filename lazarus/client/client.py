@@ -1,12 +1,11 @@
-import time
-import random
-from typing import List
 from pathlib import Path
+import random
+import time
+from typing import List
 
 import zmq
 
 from lazarus.cfg import cfg
-from lazarus.utils import get_logger
 from lazarus.client.file_provider import FileProvider
 from lazarus.common.protocol import ClientMsg, ServerMsg, MessageType
 from lazarus.constants import (
@@ -15,6 +14,7 @@ from lazarus.constants import (
     DEFAULT_PROTOCOL_TIMEOUT,
     DEFAULT_PROTOCOL_RETRY_SLEEP,
 )
+from lazarus.utils import get_logger
 
 RETRY_SLEEP: int = cfg.protocol_retry_sleep(
     default=DEFAULT_PROTOCOL_RETRY_SLEEP, cast=int
@@ -30,10 +30,7 @@ logger = get_logger(__name__)
 
 class Client:
     def __init__(
-        self,
-        hosts: List[str],
-        posts_path: Path,
-        comments_path: Path,
+        self, hosts: List[str], posts_path: Path, comments_path: Path,
     ):
         self.hosts = hosts
         self.posts_path = posts_path
@@ -133,11 +130,12 @@ class Client:
             data = resp.payload
 
             # TODO: Delete this
-            print(f"Score Avg: {data['post_score_avg']}")
-            print(f"Best Meme: {data['best_meme']}")
-            print("Education Memes:")
+            logger.info("data: %s", data)
+            logger.info(f"Score Avg: {data['posts_score_avg']}")
+            logger.info(f"Best Meme: {data['best_meme']}")
+            logger.info("Education Memes:")
             for meme in data["education_memes"]:
-                print(f" - {meme}")
+                logger.info(f" - {meme}")
 
             return
 
