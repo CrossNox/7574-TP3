@@ -1,10 +1,10 @@
 import os
 from threading import Thread
+import time
 
 import zmq
 
 from lazarus.cfg import cfg
-from lazarus.utils import get_logger
 from lazarus.constants import (
     PING,
     VICTORY,
@@ -13,6 +13,7 @@ from lazarus.constants import (
     DEFAULT_BULLY_PORT,
     DEFAULT_BULLY_TOLERANCE,
 )
+from lazarus.utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -130,9 +131,14 @@ class LeaderElectionListener(Thread):
             self.reply_to_leader_election()
 
 
+def wait_for_leader():
+    while cfg.lazarus.group_leader(default="") == "":
+        time.sleep(cfg.lazarus.bully_timeout(default=BULLY_TIMEOUT_MS * 1000, cast=int))
+
+
 def get_leader():
-    return os.environ.get("LAZARUS_GROUP_LEADER")
+    return cfg.lazarus.group_leader(default="", cast=lambda x: x if x != "" else None)
 
 
-def is_leader():
+def am_leader():
     return get_leader() == cfg.lazarus.identifier()
