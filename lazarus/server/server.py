@@ -79,7 +79,7 @@ class Server:
                     self.__handle_as_replica(req)
 
             except Exception as e:
-                logger.info(f"Exception occurred on server: {e}")
+                logger.error(f"Exception occurred on server: {e}", exc_info=True)
 
     def __retrieve_state(self):
         session, result = self.storage.retrieve_state()
