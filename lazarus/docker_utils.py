@@ -117,7 +117,7 @@ def list_containers_from_config() -> List[SystemContainer]:
             )
 
             if to_server:
-                output_groups_arg += "--output-groups servers"
+                output_groups_arg += " --output-groups servers"
 
             command = f"{v['command']} {v['subcommand']}"
 
