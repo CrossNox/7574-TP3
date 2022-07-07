@@ -1,0 +1,48 @@
+version: '3'
+services:
+  server1:
+    container_name: 'server1'
+    image: 7574-tp3-protocol
+    networks:
+      - tp3_net
+    volumes:
+       - ./db-data:/app/db-data:rw
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ID=0
+      - APP_TYPE=server
+      - IS_LEADER=1
+
+  server2:
+    container_name: 'server2'
+    image: 7574-tp3-protocol
+    networks:
+      - tp3_net
+    volumes:
+       - ./db-data:/app/db-data:rw
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ID=0
+      - APP_TYPE=server
+      - IS_LEADER=0
+
+  # server3:
+  #   container_name: 'server3'
+  #   image: 7574-tp3-protocol
+  #   networks:
+  #     - tp3_net
+  #   volumes:
+  #      - ./db-data:/app/db-data:rw
+  #   environment:
+  #     - PYTHONUNBUFFERED=1
+  #     - ID=0
+  #     - APP_TYPE=server
+  #     - IS_LEADER=0
+
+networks:
+  tp3_net:
+    name: "tp3_net"
+    ipam:
+      driver: default
+      config:
+        - subnet: 140.25.125.0/24

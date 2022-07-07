@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2022-07-06
+
+### Changed
+- `client/cli` has been refactored to utilize new structures and communicate with server using a custom protocol
+
+### Added
+- `server` module, which implements a boundary to client from backend
+- `storage` module, which serves as distribuited database for server nodes
+- `collector` module, which serves as proxy from server to collector node in DAG
+- `protocol` module, which provides common utilities for protocol logic between server and client
+- `client` module, which provides an abstraction over client's logic, including server communication
+- `file_provider` module, which provides an abstraction over data transmission from client
+
 ## [3.0.0] - 2022-07-06
 ### Removed
 - `ed-comments` no longer receives a list of columns to keep, as to preserve th
