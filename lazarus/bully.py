@@ -1,11 +1,12 @@
 import os
-from threading import Thread
 import time
-from typing import List
+from threading import Thread
+from typing import Any, Dict, List
 
 import zmq
 
 from lazarus.cfg import cfg
+from lazarus.utils import get_logger
 from lazarus.constants import (
     PING,
     VICTORY,
@@ -14,7 +15,6 @@ from lazarus.constants import (
     DEFAULT_BULLY_PORT,
     DEFAULT_BULLY_TOLERANCE,
 )
-from lazarus.utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -126,7 +126,7 @@ class LeaderElectionListener(Thread):
 
     def reply_to_leader_election(self) -> None:
         try:
-            response = self.socket.recv_json()
+            response: Dict[str, Any] = self.socket.recv_json()  # type:ignore
         except zmq.error.ZMQError as e:
             if e.errno == zmq.EAGAIN:
                 return
