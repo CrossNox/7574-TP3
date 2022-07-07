@@ -6,6 +6,7 @@ from lazarus.cfg import cfg
 from lazarus.mom.queue import Queue
 from lazarus.nodes.node import Node
 from lazarus.tasks.joiner import Joiner
+from lazarus.server.server import Server
 from lazarus.tasks.collect import Collector
 from lazarus.cli.sink import app as sink_app
 from lazarus.storage.local import LocalStorage
@@ -53,6 +54,26 @@ def main(
     ),
 ):
     config_logging(verbose, pretty)
+
+
+@app.command()
+def server(
+    server_id: int = typer.Argument(...),
+    group_identifier: str = typer.Option("server"),
+    group_size: int = typer.Argument(...),
+    posts_group: List[str] = typer.Option(...),
+    comments_group: List[str] = typer.Option(...),
+    results_queue: str = typer.Argument(...),
+):
+    new_server = Server(
+        server_id,
+        group_identifier,
+        group_size,
+        posts_group,
+        comments_group,
+        results_queue,
+    )
+    new_server.run()
 
 
 class HeartbeatReviverCallback:
@@ -109,7 +130,12 @@ def collect(
         )
         n_eos.append(group_in_size)
 
-    parsed_output_groups = [parse_group(group) for group in output_groups]
+    parsed_output_groups = [
+        parse_group(group)
+        if group != "servers"
+        else ("servers", cfg.lazarus.servers(cast=int))
+        for group in output_groups
+    ]
 
     exchanges_out = [
         WorkerExchange(
@@ -122,6 +148,15 @@ def collect(
                     if output_group_size > 1
                     else ConsumerType.Subscriber,
                 )
+                for j in range(output_group_size)
+            ],
+        )
+        if output_group_id != "servers"
+        else WorkerExchange(
+            rabbit_host,
+            exchange_name(group_id, output_group_id),
+            consumers=[
+                ConsumerConfig(f"{group_id}::servers", ConsumerType.Subscriber)
                 for j in range(output_group_size)
             ],
         )

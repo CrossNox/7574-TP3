@@ -6,11 +6,12 @@ from pathlib import Path
 import zmq
 
 from lazarus.cfg import cfg
-from lazarus.utils import get_logger
 from lazarus.client.file_provider import FileProvider
 from lazarus.common.protocol import ClientMsg, ServerMsg, MessageType
+from lazarus.utils import get_logger, ascii_to_binary, ensure_file_directory
 from lazarus.constants import (
     NO_SESSION,
+    DEFAULT_MEME_PATH,
     DEFAULT_SERVER_PORT,
     DEFAULT_PROTOCOL_TIMEOUT,
     DEFAULT_PROTOCOL_RETRY_SLEEP,
@@ -22,8 +23,9 @@ RETRY_SLEEP: int = cfg.protocol_retry_sleep(
 
 SERVER_PORT: int = cfg.server_port(default=DEFAULT_SERVER_PORT, cast=int)
 
-TIMEOUT: int = cfg.server_port(default=DEFAULT_PROTOCOL_TIMEOUT, cast=int) * 1000
+TIMEOUT: int = cfg.server_port(default=DEFAULT_PROTOCOL_TIMEOUT, cast=int) * 10000
 
+MEME_PATH: Path = cfg.meme_path(default=DEFAULT_MEME_PATH, cast=ensure_file_directory)
 
 logger = get_logger(__name__)
 
@@ -50,7 +52,7 @@ class Client:
         posts_exchange = session.payload["posts_exchange"]
         comments_exchange = session.payload["comments_exchange"]
         posts_groups = session.payload["posts_groups"]
-        comments_groups = session.payload["commets_groups"]
+        comments_groups = session.payload["comments_groups"]
 
         logger.info("Starting processes")
 
@@ -132,13 +134,16 @@ class Client:
 
             data = resp.payload
 
-            # TODO: Delete this
-            print(f"Score Avg: {data['post_score_avg']}")
-            print(f"Best Meme: {data['best_meme']}")
-            print("Education Memes:")
+            logger.info(f"Score Avg: {data['posts_score_avg']}")
+            logger.info("Education Memes:")
             for meme in data["education_memes"]:
-                print(f" - {meme}")
+                logger.info(f" - {meme}")
 
+            best_meme = ascii_to_binary(data["best_meme"])
+            logger.info(f"Downloading best meme to {MEME_PATH}")
+
+            with open(MEME_PATH, "wb") as meme_file:
+                meme_file.write(best_meme)
             return
 
     def __finish_session(self):
@@ -209,7 +214,8 @@ class Client:
             resp = ServerMsg.decode(m)
 
             return resp
-        except Exception:
+        except Exception as e:
+            logger.info(e)
             logger.info("Connection with server failed")
             self.__close_connection()
             return None

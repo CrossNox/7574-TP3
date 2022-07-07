@@ -166,7 +166,8 @@ class Node(Process):
             self.callback = self.callback_cls(
                 **self.dependencies, **self.callback_kwargs
             )
-        elif message_session_id != self.current_session_id:
+
+        if message_session_id != self.current_session_id:
             raise IncorrectSessionId(
                 f"Session {message_session_id} is not valid. Currently serving {self.current_session_id}"
             )
@@ -207,7 +208,10 @@ class Node(Process):
             self.propagate_eos()
 
             self.current_session_id = None
-            self.n_eos = 0
+            self.n_eos = {
+                q.queue_name: p for q, p in zip(self.queues_in, self.producers)
+            }
+            self.received_eos = {q.queue_name: 0 for q in self.queues_in}
 
     def handle_new_message(self, message: Message, queue_name: str):
         self.run_lock.acquire()

@@ -17,12 +17,14 @@ def revive(
     env: Optional[Dict] = None,
     group: Optional[str] = None,
     group_ids: List[str] = [],
+    **kwargs,
 ):
     logger.info("Coordinator reviving %s", identifier)
     env = env or {}
     env["LAZARUS_IDENTIFIER"] = identifier
     env["LAZARUS_GROUP"] = group
     env["LAZARUS_GROUPIDS"] = " ".join(group_ids)
+    env.update(kwargs)
     try:
         docker_client = docker.from_env()
         container = docker_client.containers.run(
@@ -60,7 +62,11 @@ class SystemContainer:
 
     def revive(self):
         self.container = revive(
-            self.identifier, self.command, group=self.group, group_ids=self.group_ids
+            self.identifier,
+            self.command,
+            group=self.group,
+            group_ids=self.group_ids,
+            LAZARUS_SERVERS=cfg.lazarus.servers(),
         )
 
     def __del__(self):
@@ -100,6 +106,9 @@ def list_containers_from_config() -> List[SystemContainer]:
                 input_group_arg += f" --input-group {group}:{group_size}"
 
             output_groups = [x for x in v["output_groups"].split(" ") if x != ""]
+            to_server = "servers" in output_groups
+            output_groups = [x for x in output_groups if x != "servers"]
+
             output_groups_sizes = (
                 []
                 if len(output_groups) == 0
@@ -113,6 +122,9 @@ def list_containers_from_config() -> List[SystemContainer]:
                 f"--output-groups {':'.join(x)}"
                 for x in zip(output_groups, output_groups_sizes)
             )
+
+            if to_server:
+                output_groups_arg += " --output-groups servers"
 
             command = f"{v['command']} {v['subcommand']}"
 

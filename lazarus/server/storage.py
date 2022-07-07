@@ -3,12 +3,13 @@ from typing import Dict, List, Union
 
 from lazarus.cfg import cfg
 from lazarus.mom.queue import Queue
-from lazarus.utils import get_logger
 from lazarus.mom.message import Message
 from lazarus.storage.local import LocalStorage
+from lazarus.utils import coalesce, get_logger, ensure_path, build_node_id
 from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.constants import (
     NO_SESSION,
+    DEFAULT_DATA_DIR,
     DEFAULT_MOM_HOST,
     DEFAULT_SERVER_DB_TOPIC,
     DEFAULT_SERVER_DB_EXCHANGE,
@@ -27,16 +28,15 @@ ResultType = Dict[str, Union[List[str], str]]
 
 class ServerStorage:
     def __init__(self, s_id: int, group_identifier: str, group_size: int):
-
-        # TODO: Replace this with build_node_identifier on integration
-        self.identifier = f"{group_identifier}{s_id}"
+        self.identifier = build_node_id(group_identifier, s_id)
 
         self.exchange = WorkerExchange(
             MOM_HOST,
             DB_EXCHANGE,
             [
-                # TODO: Replace this with build_node_identifier on integration
-                ConsumerConfig(f"{group_identifier}{i}", ConsumerType.Subscriber)
+                ConsumerConfig(
+                    build_node_id(group_identifier, i), ConsumerType.Subscriber
+                )
                 for i in range(group_size)
             ],
         )
@@ -57,8 +57,10 @@ class ServerStorage:
         self.exchange.push(Message(payload))
 
     def retrieve_state(self):
-        # TODO: Replace this with build_node_identifier and DEFAULT_PATH on integration
-        storage = LocalStorage.load(f"/data/{self.identifier}")
+        storage = LocalStorage.load(
+            cfg.lazarus.data_dir(cast=ensure_path, default=DEFAULT_DATA_DIR)
+            / self.identifier
+        )
 
         # TokenMessage
         token = {"type": "token", "data": self.identifier}
@@ -66,30 +68,45 @@ class ServerStorage:
         self.exchange.push(Message(token))
 
         # Now we consume the queue until we find the token
+
+        class DummyCallback:
+            def __init__(
+                self,
+                identifier,
+                finished,
+                storage,
+            ):
+                self.identifier = identifier
+                self.finished = finished
+                self.storage = storage
+
+            def __call__(self, msg: Message):
+                try:
+                    mtype = msg["type"]
+                    data = msg["data"]
+                    if mtype == "token":
+                        if data == self.identifier:
+                            msg.ack()
+                            self.finished.set()
+                            return
+                        # else ignored
+                    elif mtype == "new_session":
+                        self.storage.put("session_id", data, topic=DB_TOPIC)
+                    elif mtype == "finish_session":
+                        self.storage.put("session_id", NO_SESSION, topic=DB_TOPIC)
+                    elif mtype == "result":
+                        self.storage.put("result", data, topic=DB_TOPIC)
+                    else:
+                        logger.error(
+                            f"Received unknown message of type {mtype} on ServerStorage"
+                        )
+                    msg.ack()
+                except Exception:
+                    logger.error("never set", exc_info=True)
+
         finished = Event()
 
-        def __callback(msg: Message):
-            mtype = msg["type"]
-            payload = msg["payload"]
-
-            if mtype == "token":
-                if payload == self.identifier:
-                    msg.ack()
-                    finished.set()
-                    return
-                # else ignored
-            elif mtype == "new_session":
-                storage.put("session_id", payload, topic=DB_TOPIC)
-            elif mtype == "finish_session":
-                storage.put("session_id", NO_SESSION, topic=DB_TOPIC)
-            elif mtype == "result":
-                storage.put("result", payload, topic=DB_TOPIC)
-            else:
-                logger.error(
-                    f"Received unknown message of type {mtype} on ServerStorage"
-                )
-
-            msg.ack()
+        __callback = DummyCallback(self.identifier, finished, storage)
 
         queue = Queue(MOM_HOST, self.identifier)
         queue.consume(__callback)
@@ -97,8 +114,11 @@ class ServerStorage:
         queue.close()
 
         # Now we recover state from db
-        session_id = storage.get("session_id", topic=DB_TOPIC)
-        result = storage.get("result", topic=DB_TOPIC)
+        session_id = coalesce(storage.get)("session_id", topic=DB_TOPIC)
+        result = coalesce(storage.get)("result", topic=DB_TOPIC)
+
+        if session_id is None:
+            session_id = NO_SESSION
 
         return session_id, result
 

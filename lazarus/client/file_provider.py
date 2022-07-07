@@ -54,12 +54,15 @@ class FileProvider(Process):
             with open(self.file_path, newline="") as f:
                 reader = csv.DictReader(f)
                 logger.info(f"Starting to read {self.file_path}")
+                count = 0
                 for line in reader:
+                    count += 1
                     m = {"type": "data", "session_id": self.session_id, "data": line}
                     msg = Message(data=m)
                     for exch in exchanges:
                         exch.push(msg)
-
+                    if count % 1000 == 0:
+                        logger.info(f"Sent {count} messages")
                 m = {"type": EOS, "session_id": self.session_id, "id": "client"}
 
                 for exch in exchanges:
