@@ -142,7 +142,9 @@ def collect(
             exchange_name(group_id, output_group_id),
             consumers=[
                 ConsumerConfig(
-                    queue_in_name(group_id, output_group_id, j),
+                    queue_in_name(group_id, output_group_id, j)
+                    if output_group_id != "servers"
+                    else f"{group_id}::servers",
                     ConsumerType.Worker
                     if output_group_size > 1
                     else ConsumerType.Subscriber,
