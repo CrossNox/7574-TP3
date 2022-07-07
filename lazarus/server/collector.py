@@ -2,10 +2,10 @@ import queue as q
 from threading import Event
 
 from lazarus.cfg import cfg
+from lazarus.constants import EOS, DEFAULT_MOM_HOST
+from lazarus.mom.message import Message
 from lazarus.mom.queue import Queue
 from lazarus.utils import get_logger
-from lazarus.mom.message import Message
-from lazarus.constants import EOS, DEFAULT_MOM_HOST
 
 logger = get_logger(__name__)
 
@@ -34,7 +34,7 @@ class ResultCollector:
                 msg.ack()
                 return
 
-            self.result_queue.put(msg["data"])
+            self.result_queue.put(msg)
             self.msg_collected.wait()
             self.msg_collected.clear()
             msg.ack()

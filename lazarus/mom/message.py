@@ -5,6 +5,9 @@ class Message:
     def __init__(self, data=None):
         self._data = data or {}
 
+    def __contains__(self, key):
+        return key in self._data
+
     @property
     def data(self):
         return self._data
