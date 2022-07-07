@@ -3,13 +3,10 @@ from typing import List
 
 import zmq
 
-from lazarus.cfg import cfg
-from lazarus.utils import get_logger
-from lazarus.server.storage import ServerStorage
-from lazarus.server.collector import ResultCollector
 from lazarus.bully import am_leader as bully_am_leader
 from lazarus.bully import get_leader as bully_get_leader
 from lazarus.bully import wait_for_leader as bully_wait_for_leader
+from lazarus.cfg import cfg
 from lazarus.common.protocol import LOG_TABLE, ClientMsg, ServerMsg, MessageType
 from lazarus.constants import (
     NO_SESSION,
@@ -18,6 +15,9 @@ from lazarus.constants import (
     DEFAULT_POSTS_EXCHANGE,
     DEFAULT_COMMENTS_EXCHANGE,
 )
+from lazarus.server.collector import ResultCollector
+from lazarus.server.storage import ServerStorage
+from lazarus.utils import get_logger
 
 SERVER_PORT: int = cfg.server_port(default=DEFAULT_SERVER_PORT, cast=int)
 MOM_HOST: str = cfg.mom_host(default=DEFAULT_MOM_HOST)
@@ -55,23 +55,37 @@ class Server:
         self.result = None
 
         logger.info(f"Server started on {SERVER_PORT}")
+        logger.debug(f"Server started on {SERVER_PORT}")
 
     def run(self):
+        logger.info("Wait for leader")
         bully_wait_for_leader()
+        logger.info("Got leader!")
         i_was_leader = False
 
         while True:
             try:
+                logger.info("run::receive")
                 req = self.__receive()
+                logger.info("receive got response")
                 if bully_am_leader():
                     if not i_was_leader:
+                        logger.info("starting collector")
                         self.collector.start()
+                        logger.info("collector started")
                         i_was_leader = True
+                        logger.info("retrieving state")
                         self.__retrieve_state()
+                        logger.info("state retrieved")
+                    logger.info("handling as leader")
                     self.__handle_as_leader(req)
+                    logger.info("handling as leader")
                 else:
+                    logger.info("stopping collector")
                     self.collector.stop()
+                    logger.info("collector stopped")
                     i_was_leader = False
+                    logger.info("handling as replica")
                     self.__handle_as_replica(req)
 
             except Exception as e:

@@ -1,12 +1,11 @@
 import os
+from threading import Lock, Thread
 import time
-from threading import Thread, Lock
 from typing import Any, Dict, List
 
 import zmq
 
 from lazarus.cfg import cfg
-from lazarus.utils import get_logger
 from lazarus.constants import (
     PING,
     VICTORY,
@@ -15,6 +14,7 @@ from lazarus.constants import (
     DEFAULT_BULLY_PORT,
     DEFAULT_BULLY_TOLERANCE,
 )
+from lazarus.utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -23,17 +23,23 @@ LOOKINGFOR: str = "LOOKINGFOR"
 
 leader_state_lock = Lock()
 
+
 def wait_for_leader():
-    logger.debug("Leaving wait_for_leader")
+    logger.debug("Entering wait_for_leader")
     while True:
+        logger.info("wait_for_leader:: Acquiring log")
         leader_state_lock.acquire()
+        logger.info("wait_for_leader:: Lock acquired")
         keep_going = cfg.lazarus.group_leader(default=UNKNOWN) in (UNKNOWN, LOOKINGFOR)
+        logger.info("wait_for_leader:: Lock released")
         leader_state_lock.release()
         if keep_going:
+            logger.info("wait_for_leader:: keep going, sleeping")
             time.sleep(cfg.lazarus.bully_timeout(default=BULLY_TIMEOUT_MS, cast=int))
         else:
             break
     logger.debug("Leaving wait_for_leader")
+
 
 def get_leader():
     leader = get_leader_state()
@@ -43,16 +49,21 @@ def get_leader():
 def am_leader():
     return get_leader() == cfg.lazarus.identifier()
 
+
 def get_leader_state() -> str:
+    logger.info("Entering get_leader_state")
     leader_state_lock.acquire()
     leader = cfg.lazarus.group_leader(default=UNKNOWN)
     leader_state_lock.release()
+    logger.info("Leaving get_leader_state")
     return leader
+
 
 def set_leader_state(state: str):
     leader_state_lock.acquire()
     os.environ["LAZARUS_GROUP_LEADER"] = state
     leader_state_lock.release()
+
 
 def try_send(container, sibling, socket, msg, tolerance):
     for i in range(tolerance):
@@ -95,11 +106,10 @@ def elect_leader(
 ):
     if get_leader_state() == LOOKINGFOR:
         logger.info("Asked for a new leader election, but one is already running!")
-        return # We are already on a election
+        return  # We are already on a election
 
     set_leader_state(LOOKINGFOR)
     logger.info("%s starting leader election for size-%d group", container, len(group))
-
 
     ctx = zmq.Context.instance()
 
@@ -183,9 +193,7 @@ class LeaderElectionListener(Thread):
                 logger.info("I'm already in election, so we ignore this msg")
             else:
                 # TODO: We are not joining threads right here
-                worker = Thread(
-                    target=elect_leader, args=(self.identifier, self.group)
-                )
+                worker = Thread(target=elect_leader, args=(self.identifier, self.group))
                 worker.start()
 
         elif response["type"] == VICTORY:
@@ -198,4 +206,3 @@ class LeaderElectionListener(Thread):
             logger.info("Listening for leader election")
             self.reply_to_leader_election()
             logger.info("Leader is < %s >", get_leader_state())
-
