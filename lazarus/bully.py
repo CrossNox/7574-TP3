@@ -1,6 +1,6 @@
 import os
 import time
-from threading import Thread
+from threading import Thread, Lock
 from typing import Any, Dict, List
 
 import zmq
@@ -18,6 +18,41 @@ from lazarus.constants import (
 
 logger = get_logger(__name__)
 
+UNKNOWN: str = "UNKNOWN"
+LOOKINGFOR: str = "LOOKINGFOR"
+
+leader_state_lock = Lock()
+
+def wait_for_leader():
+    logger.debug("Leaving wait_for_leader")
+    while True:
+        leader_state_lock.acquire()
+        keep_going = cfg.lazarus.group_leader(default=UNKNOWN) in (UNKNOWN, LOOKINGFOR)
+        leader_state_lock.release()
+        if keep_going:
+            time.sleep(cfg.lazarus.bully_timeout(default=BULLY_TIMEOUT_MS, cast=int))
+        else:
+            break
+    logger.debug("Leaving wait_for_leader")
+
+def get_leader():
+    leader = get_leader_state()
+    return None if leader in (UNKNOWN, LOOKINGFOR) else leader
+
+
+def am_leader():
+    return get_leader() == cfg.lazarus.identifier()
+
+def get_leader_state() -> str:
+    leader_state_lock.acquire()
+    leader = cfg.lazarus.group_leader(default=UNKNOWN)
+    leader_state_lock.release()
+    return leader
+
+def set_leader_state(state: str):
+    leader_state_lock.acquire()
+    os.environ["LAZARUS_GROUP_LEADER"] = state
+    leader_state_lock.release()
 
 def try_send(container, sibling, socket, msg, tolerance):
     for i in range(tolerance):
@@ -58,8 +93,13 @@ def elect_leader(
         default=DEFAULT_BULLY_TOLERANCE, cast=int
     ),
 ):
+    if get_leader_state() == LOOKINGFOR:
+        logger.info("Asked for a new leader election, but one is already running!")
+        return # We are already on a election
+
+    set_leader_state(LOOKINGFOR)
     logger.info("%s starting leader election for size-%d group", container, len(group))
-    os.environ["LAZARUS_GROUP_LEADER"] = ""
+
 
     ctx = zmq.Context.instance()
 
@@ -95,7 +135,7 @@ def elect_leader(
                 leader_notified.append(sibling)
 
         logger.info("%s is the leader", container)
-        os.environ["LAZARUS_GROUP_LEADER"] = container
+        set_leader_state(container)
         return
 
 
@@ -139,27 +179,23 @@ class LeaderElectionListener(Thread):
         if response["type"] == ELECTION:
             logger.info("Received ELECTION")
             try_send(self.identifier, "sibling", self.socket, ping_msg, self.tolerance)
-            elect_leader(self.identifier, self.group)
+            if get_leader_state() == LOOKINGFOR:
+                logger.info("I'm already in election, so we ignore this msg")
+            else:
+                # TODO: We are not joining threads right here
+                worker = Thread(
+                    target=elect_leader, args=(self.identifier, self.group)
+                )
+                worker.start()
+
         elif response["type"] == VICTORY:
             logger.info("Received VICTORY")
             try_send(self.identifier, "sibling", self.socket, ping_msg, self.tolerance)
-            os.environ["LAZARUS_GROUP_LEADER"] = response["host"]
+            set_leader_state(response["host"])
 
     def run(self):
         while True:
             logger.info("Listening for leader election")
             self.reply_to_leader_election()
-            logger.info("Leader is < %s >", cfg.lazarus.group_leader(default=""))
+            logger.info("Leader is < %s >", get_leader_state())
 
-
-def wait_for_leader():
-    while cfg.lazarus.group_leader(default="") == "":
-        time.sleep(cfg.lazarus.bully_timeout(default=BULLY_TIMEOUT_MS, cast=int))
-
-
-def get_leader():
-    return cfg.lazarus.group_leader(default="", cast=lambda x: x if x != "" else None)
-
-
-def am_leader():
-    return get_leader() == cfg.lazarus.identifier()
