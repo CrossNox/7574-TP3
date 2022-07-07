@@ -3,13 +3,13 @@ from typing import Dict, List, Union
 
 from lazarus.cfg import cfg
 from lazarus.mom.queue import Queue
-from lazarus.utils import build_node_id, ensure_path, get_logger, coalesce
 from lazarus.mom.message import Message
 from lazarus.storage.local import LocalStorage
+from lazarus.utils import coalesce, get_logger, ensure_path, build_node_id
 from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.constants import (
-    DEFAULT_DATA_DIR,
     NO_SESSION,
+    DEFAULT_DATA_DIR,
     DEFAULT_MOM_HOST,
     DEFAULT_SERVER_DB_TOPIC,
     DEFAULT_SERVER_DB_EXCHANGE,
@@ -34,7 +34,9 @@ class ServerStorage:
             MOM_HOST,
             DB_EXCHANGE,
             [
-                ConsumerConfig(build_node_id(group_identifier, i), ConsumerType.Subscriber)
+                ConsumerConfig(
+                    build_node_id(group_identifier, i), ConsumerType.Subscriber
+                )
                 for i in range(group_size)
             ],
         )
@@ -55,7 +57,10 @@ class ServerStorage:
         self.exchange.push(Message(payload))
 
     def retrieve_state(self):
-        storage = LocalStorage.load(cfg.lazarus.data_dir(cast=ensure_path, default=DEFAULT_DATA_DIR) / self.identifier)
+        storage = LocalStorage.load(
+            cfg.lazarus.data_dir(cast=ensure_path, default=DEFAULT_DATA_DIR)
+            / self.identifier
+        )
 
         # TokenMessage
         token = {"type": "token", "data": self.identifier}
@@ -97,15 +102,11 @@ class ServerStorage:
                         )
                     msg.ack()
                 except Exception:
-                    logger.error('never set', exc_info=True)
+                    logger.error("never set", exc_info=True)
 
         finished = Event()
 
-        __callback = DummyCallback(
-            self.identifier,
-            finished,
-            storage
-        )
+        __callback = DummyCallback(self.identifier, finished, storage)
 
         queue = Queue(MOM_HOST, self.identifier)
         queue.consume(__callback)

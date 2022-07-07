@@ -2,10 +2,9 @@ from dataclasses import dataclass
 from typing import Dict, List, Union, Optional
 
 import docker
-
 from lazarus.cfg import cfg
-from lazarus.constants import DOCKER_NETWORK, DEFAULT_DATA_DIR, DOCKER_IMAGE_NAME
 from lazarus.utils import get_logger, queue_in_name
+from lazarus.constants import DOCKER_NETWORK, DEFAULT_DATA_DIR, DOCKER_IMAGE_NAME
 
 logger = get_logger(__name__)
 
@@ -35,7 +34,9 @@ def revive(
             detach=True,
             network=network,
             environment=env,
-            volumes=[f"{cfg.lazarus.datadir()}:{DEFAULT_DATA_DIR}",],
+            volumes=[
+                f"{cfg.lazarus.datadir()}:{DEFAULT_DATA_DIR}",
+            ],
             remove=True,
         )
         return container

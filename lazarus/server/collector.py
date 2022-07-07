@@ -2,10 +2,10 @@ import queue as q
 from threading import Event
 
 from lazarus.cfg import cfg
-from lazarus.constants import EOS, DEFAULT_MOM_HOST
-from lazarus.mom.message import Message
 from lazarus.mom.queue import Queue
 from lazarus.utils import get_logger
+from lazarus.mom.message import Message
+from lazarus.constants import EOS, DEFAULT_MOM_HOST
 
 logger = get_logger(__name__)
 

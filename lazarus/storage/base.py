@@ -1,7 +1,7 @@
 import abc
 import json
-from typing import Dict, Union, Optional
 import zlib
+from typing import Dict, Union, Optional
 
 from lazarus.exceptions import BadChecksumError
 
@@ -53,7 +53,10 @@ class BaseStorage(abc.ABC):
 
     @classmethod
     def payload(
-        cls, key: KeyType, message: MessageType, topic: Optional[TopicType] = None,
+        cls,
+        key: KeyType,
+        message: MessageType,
+        topic: Optional[TopicType] = None,
     ):
         return {"key": key, "message": message, "topic": topic}
 
