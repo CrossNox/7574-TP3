@@ -9,7 +9,7 @@ services:
       - PYTHONUNBUFFERED=1
       - ID=0
       - APP_TYPE=client
-  
+
 networks:
   tp3_net:
     external:
