@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `client` module, which provides an abstraction over client's logic, including server communication
 - `file_provider` module, which provides an abstraction over data transmission from client
 
+### Changed
+- Bully leader election algorithm now try-catches the send and recv of messages to avoid connection error
+
 ## [3.0.0] - 2022-07-06
 ### Removed
 - `ed-comments` no longer receives a list of columns to keep, as to preserve th
