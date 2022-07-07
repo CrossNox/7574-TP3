@@ -3,14 +3,19 @@ from typing import List
 
 import typer
 
-from lazarus.bully import LeaderElectionListener, elect_leader
+from lazarus.bully import LeaderElectionListener, get_leader, elect_leader
 from lazarus.cfg import cfg
 from lazarus.cli.dataset import app as dataset_app
 from lazarus.cli.download import app as download_app
 from lazarus.cli.filter import app as filter_app
 from lazarus.cli.sink import app as sink_app
 from lazarus.cli.transform import app as transform_app
-from lazarus.constants import DEFAULT_DATA_DIR, DEFAULT_HEARTBEAT_PORT
+from lazarus.constants import (
+    BULLY_TIMEOUT_MS,
+    DEFAULT_DATA_DIR,
+    DEFAULT_BULLY_PORT,
+    DEFAULT_HEARTBEAT_PORT,
+)
 from lazarus.docker_utils import SystemContainer, list_containers_from_config
 from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.mom.queue import Queue
@@ -58,6 +63,16 @@ def main(
     config_logging(verbose, pretty)
 
 
+class ElectLeader:
+    def __init__(self, node_id: str, group: List[str]):
+        self.node_id = node_id
+        self.group = group
+
+    def __call__(self, host, port):
+        if get_leader() in (host, None):
+            elect_leader(self.node_id, self.group)
+
+
 @app.command()
 def server(
     server_id: int = typer.Argument(...),
@@ -67,8 +82,23 @@ def server(
     comments_group: List[str] = typer.Option(...),
     results_queue: str = typer.Argument(...),
 ):
-    lel = LeaderElectionListener()
+
+    node_id = build_node_id(group_identifier, server_id)
+    group = [build_node_id(group_identifier, i) for i in range(group_size)]
+
+    hosts = [(h, DEFAULT_HEARTBEAT_PORT) for h in filter(lambda x: x != node_id, group)]
+
+    lel = LeaderElectionListener(node_id, group)
     lel.start()
+
+    elect_leader(node_id, group)
+
+    hbs = HeartbeatSender()
+    hbl = HeartbeatsListener(
+        hosts, ElectLeader(node_id, group), sleep_time=BULLY_TIMEOUT_MS / 1000
+    )
+    hbs.start()
+    hbl.start()
 
     new_server = Server(
         server_id,

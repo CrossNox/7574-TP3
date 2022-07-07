@@ -1,14 +1,13 @@
-import time
-import random
-from typing import List
 from pathlib import Path
+import random
+import time
+from typing import List
 
 import zmq
 
 from lazarus.cfg import cfg
 from lazarus.client.file_provider import FileProvider
 from lazarus.common.protocol import ClientMsg, ServerMsg, MessageType
-from lazarus.utils import get_logger, ascii_to_binary, ensure_file_directory
 from lazarus.constants import (
     NO_SESSION,
     DEFAULT_MEME_PATH,
@@ -16,6 +15,7 @@ from lazarus.constants import (
     DEFAULT_PROTOCOL_TIMEOUT,
     DEFAULT_PROTOCOL_RETRY_SLEEP,
 )
+from lazarus.utils import get_logger, ascii_to_binary, ensure_file_directory
 
 RETRY_SLEEP: int = cfg.protocol_retry_sleep(
     default=DEFAULT_PROTOCOL_RETRY_SLEEP, cast=int
@@ -32,10 +32,7 @@ logger = get_logger(__name__)
 
 class Client:
     def __init__(
-        self,
-        hosts: List[str],
-        posts_path: Path,
-        comments_path: Path,
+        self, hosts: List[str], posts_path: Path, comments_path: Path,
     ):
         self.hosts = hosts
         self.posts_path = posts_path
@@ -56,32 +53,36 @@ class Client:
 
         logger.info("Starting processes")
 
-        pposts = FileProvider(
-            self.session_id,
-            address,
-            posts_exchange,
-            self.posts_path,
-            posts_groups or [],
-        )
+        # pposts = FileProvider(
+        #     self.session_id,
+        #     address,
+        #     posts_exchange,
+        #     self.posts_path,
+        #     posts_groups or [],
+        # )
 
-        pcomments = FileProvider(
-            self.session_id,
-            address,
-            comments_exchange,
-            self.comments_path,
-            comments_groups or [],
-        )
+        # pcomments = FileProvider(
+        #    self.session_id,
+        #    address,
+        #    comments_exchange,
+        #    self.comments_path,
+        #    comments_groups or [],
+        # )
+
+        import time
+
+        time.sleep(5)
 
         logger.info("Starting posts relay process")
-        pposts.start()
+        # pposts.start()
 
         logger.info("Starting comments relay process")
-        pcomments.start()
+        # pcomments.start()
 
-        pposts.join()
+        # pposts.join()
         logger.info("Joined posts relay process")
 
-        pcomments.join()
+        # pcomments.join()
         logger.info("Joined comments relay process")
 
         self.__get_computation_result()

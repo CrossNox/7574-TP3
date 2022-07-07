@@ -1,6 +1,7 @@
 import os
 from threading import Thread
 import time
+from typing import List
 
 import zmq
 
@@ -51,8 +52,8 @@ def try_recv(container, sibling, socket, expected_type, tolerance):
 
 
 def elect_leader(
-    container,
-    group,
+    container: str,
+    group: List[str],
     tolerance: int = cfg.lazarus.bully_tolerance(
         default=DEFAULT_BULLY_TOLERANCE, cast=int
     ),
@@ -67,6 +68,7 @@ def elect_leader(
         socket = ctx.socket(zmq.REQ)
         socket.RCVTIMEO = BULLY_TIMEOUT_MS
         socket.SNDTIMEO = BULLY_TIMEOUT_MS
+        logger.info("Connect to tcp://%s:%s", sibling, DEFAULT_BULLY_PORT)
         socket.connect(f"tcp://{sibling}:{DEFAULT_BULLY_PORT}")
         msg = {"type": ELECTION, "host": container}
         send = try_send(container, sibling, socket, msg, tolerance)
@@ -82,6 +84,7 @@ def elect_leader(
             socket = ctx.socket(zmq.REQ)
             socket.RCVTIMEO = BULLY_TIMEOUT_MS
             socket.SNDTIMEO = BULLY_TIMEOUT_MS
+            logger.info("Connect to tcp://%s:%s", sibling, DEFAULT_BULLY_PORT)
             socket.connect(f"tcp://{sibling}:{DEFAULT_BULLY_PORT}")
             msg = {"type": VICTORY, "host": container}
             send = try_send(container, sibling, socket, msg, tolerance)
@@ -97,29 +100,46 @@ def elect_leader(
 
 
 class LeaderElectionListener(Thread):
-    def __init__(self, port: int = cfg.lazarus.bully_port(default=DEFAULT_BULLY_PORT)):
+    def __init__(
+        self,
+        node_id: str,
+        group: List[str],
+        port: int = cfg.lazarus.bully_port(default=DEFAULT_BULLY_PORT),
+    ):
         super().__init__()
+        self.identifier = node_id
+        self.group = group
         self.port = port
         self.tolerance = cfg.lazarus.bully_tolerance(
             default=DEFAULT_BULLY_TOLERANCE, cast=int
         )
-        self.identifier = cfg.lazarus.identifier()
         ctx = zmq.Context.instance()
 
         self.socket = ctx.socket(zmq.REP)
         self.socket.RCVTIMEO = BULLY_TIMEOUT_MS
         self.socket.SNDTIMEO = BULLY_TIMEOUT_MS
+
+        logger.info("Binding to tcp://*:%s", self.port)
         self.socket.bind(f"tcp://*:{self.port}")
 
-    def reply_to_leader_election(self):
-        response = self.socket.recv_json()
+        logger.info("LeaderElectionListener :: %s -> %s", self.identifier, self.group)
+
+    def reply_to_leader_election(self) -> None:
+        try:
+            response = self.socket.recv_json()
+        except zmq.error.ZMQError as e:
+            if e.errno == zmq.EAGAIN:
+                return
+            else:
+                raise
+
         logger.info("%s got %s", self.identifier, response["type"])
 
         ping_msg = {"type": PING, "host": self.identifier}
         if response["type"] == ELECTION:
             logger.info("Received ELECTION")
             try_send(self.identifier, "sibling", self.socket, ping_msg, self.tolerance)
-            elect_leader(self.identifier, cfg.lazarus.groupids().split())
+            elect_leader(self.identifier, self.group)
         elif response["type"] == VICTORY:
             logger.info("Received VICTORY")
             try_send(self.identifier, "sibling", self.socket, ping_msg, self.tolerance)
@@ -129,11 +149,12 @@ class LeaderElectionListener(Thread):
         while True:
             logger.info("Listening for leader election")
             self.reply_to_leader_election()
+            logger.info("Leader is < %s >", cfg.lazarus.group_leader(default=""))
 
 
 def wait_for_leader():
     while cfg.lazarus.group_leader(default="") == "":
-        time.sleep(cfg.lazarus.bully_timeout(default=BULLY_TIMEOUT_MS * 1000, cast=int))
+        time.sleep(cfg.lazarus.bully_timeout(default=BULLY_TIMEOUT_MS, cast=int))
 
 
 def get_leader():

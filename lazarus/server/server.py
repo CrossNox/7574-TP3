@@ -16,7 +16,6 @@ from lazarus.constants import (
     DEFAULT_COMMENTS_EXCHANGE,
 )
 from lazarus.server.collector import ResultCollector
-from lazarus.server.leader_election import LeaderElectionMock
 from lazarus.server.storage import ServerStorage
 from lazarus.utils import get_logger
 
