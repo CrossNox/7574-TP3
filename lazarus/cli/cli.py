@@ -142,13 +142,20 @@ def collect(
             exchange_name(group_id, output_group_id),
             consumers=[
                 ConsumerConfig(
-                    queue_in_name(group_id, output_group_id, j)
-                    if output_group_id != "servers"
-                    else f"{group_id}::servers",
+                    queue_in_name(group_id, output_group_id, j),
                     ConsumerType.Worker
                     if output_group_size > 1
                     else ConsumerType.Subscriber,
                 )
+                for j in range(output_group_size)
+            ],
+        )
+        if output_group_id != "servers"
+        else WorkerExchange(
+            rabbit_host,
+            exchange_name(group_id, output_group_id),
+            consumers=[
+                ConsumerConfig(f"{group_id}::servers", ConsumerType.Subscriber)
                 for j in range(output_group_size)
             ],
         )
