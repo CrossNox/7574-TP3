@@ -68,8 +68,8 @@ class ServerStorage:
 
         class DummyCallback:
             def __init__(
-                self, 
-                identifier, 
+                self,
+                identifier,
                 finished,
                 storage,
             ):
@@ -78,12 +78,9 @@ class ServerStorage:
                 self.storage = storage
 
             def __call__(self, msg: Message):
-                logger.info("im on the call back oh yes")
                 try:
                     mtype = msg["type"]
                     data = msg["data"]
-                    logger.error(data)
-                    logger.error(self.identifier)
                     if mtype == "token":
                         if data == self.identifier:
                             msg.ack()

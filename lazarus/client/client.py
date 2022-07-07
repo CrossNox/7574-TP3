@@ -206,7 +206,6 @@ class Client:
             self.req.connect(f"tcp://{address}")
             self.req.send_string(ClientMsg(MessageType.PROBE, NO_SESSION).encode())
             m = self.req.recv_string()
-            logger.info(m)
             resp = ServerMsg.decode(m)
 
             return resp
