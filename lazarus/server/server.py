@@ -1,79 +1,100 @@
-import shelve
+import random
+from typing import List
 
 import zmq
 
 from lazarus.cfg import cfg
 from lazarus.utils import get_logger
-from lazarus.constants import NO_SESSION, DEFAULT_SERVER_PORT
+from lazarus.server.storage import ServerStorage
+from lazarus.server.collector import ResultCollector
+from lazarus.server.leader_election import LeaderElectionMock
 from lazarus.common.protocol import LOG_TABLE, ClientMsg, ServerMsg, MessageType
+from lazarus.constants import (
+    NO_SESSION,
+    DEFAULT_MOM_HOST,
+    DEFAULT_SERVER_PORT,
+    DEFAULT_POSTS_EXCHANGE,
+    DEFAULT_COMMENTS_EXCHANGE,
+)
 
 SERVER_PORT: int = cfg.server_port(default=DEFAULT_SERVER_PORT, cast=int)
+MOM_HOST: str = cfg.mom_host(default=DEFAULT_MOM_HOST)
+POSTS_EXCHANGE: str = cfg.posts_exchange(default=DEFAULT_POSTS_EXCHANGE)
+COMMENTS_EXCHANGE: str = cfg.posts_exchange(default=DEFAULT_COMMENTS_EXCHANGE)
 
+
+MIN_SESSION_ID: int = 1
+MAX_SESSION_ID: int = 100_000_000
 
 logger = get_logger(__name__)
 
 
 class Server:
-    def __init__(self, is_leader: bool):
+    def __init__(
+        self,
+        s_id: int,
+        group_identifier: str,
+        group_size: int,
+        posts_group: List[str],
+        comments_group: List[str],
+        results_queue: str,
+    ):
         self.context = zmq.Context.instance()  # type: ignore
         self.context.setsockopt(zmq.LINGER, 0)
         self.rep = self.context.socket(zmq.REP)
         self.rep.bind(f"tcp://*:{SERVER_PORT}")
         self.current_session = NO_SESSION
-        self.completed_sessions = 0
         self.on_creation_session = 0
-        self.work_done_count = 0
-        self.is_leader = is_leader
-        if is_leader:
-            self.db = shelve.open("/app/db-data/server-db", writeback=True)
-            self.load_state()
+        self.posts_group = posts_group
+        self.comments_group = comments_group
+
+        # TODO: Leader election is hardcoded
+        self.election = LeaderElectionMock()
+        self.storage = ServerStorage(s_id, group_identifier, group_size)
+        self.collector = ResultCollector(results_queue)
+        self.result = None
 
         logger.info(f"Server started on {SERVER_PORT}")
 
-    # TODO: Remove both write_state and load_state
-    def write_state(self):
-        state = {
-            "completed_sessions": self.completed_sessions,
-            "current_session": self.current_session,
-            "work_done_count": self.work_done_count,
-        }
-
-        self.db["state"] = state
-        self.db.sync()
-
-        print("State Written")
-
-    def load_state(self):
-        if "state" not in self.db:
-            return
-        state = self.db["state"]
-
-        self.completed_sessions = state.get("completed_sessions", 0)
-        self.current_session = state.get("current_session", 0)
-        self.work_done_count = state.get("work_done_count", 0)
-
-        print("Loading state from DB:")
-        print(f"- Completed Sessions: {self.completed_sessions}")
-        print(f"- Current Session: {self.current_session}")
-        print(f"- Work Done Count: {self.work_done_count}")
-
     def run(self):
+        self.election.wait_for_leader()
+        i_was_leader = False
+
         while True:
             try:
-                m = self.rep.recv_string()
-                self.__handle_new_message(ClientMsg.decode(m))
+                req = self.__receive()
+                if self.election.i_am_leader():
+                    if not i_was_leader:
+                        self.collector.start()
+                        i_was_leader = True
+                        self.__retrieve_state()
+                    self.__handle_as_leader(req)
+                else:
+                    self.collector.stop()
+                    i_was_leader = False
+                    self.__handle_as_replica(req)
+
             except Exception as e:
                 logger.info(f"Exception occurred on server: {e}")
 
-    def __handle_new_message(self, msg: ClientMsg):
-        self.log_msg(msg)
+    def __retrieve_state(self):
+        session, result = self.storage.retrieve_state()
+        self.current_session = session
+        self.result = result
 
-        # TODO: Remove hardcode
-        if not self.is_leader:
-            leader = {"host": "server1"}
-            self.send(MessageType.REDIRECT, leader)
-            return
+    def __handle_as_replica(self, _msg: ClientMsg):
+        # TODO: Posible bug, que el líder no sea el host
+        leader = self.election.get_leader()  # pylint: disable=assignment-from-none
 
+        if leader is None:
+            self.__send(MessageType.NOTAVAIL)
+        else:
+            # TODO: Borrar este log
+            logger.info(f"Redirecting to {leader}")
+            leader = {"host": leader}
+            self.__send(MessageType.REDIRECT, leader)
+
+    def __handle_as_leader(self, msg: ClientMsg):
         handlers = {
             MessageType.PROBE: self.__handle_probe,
             MessageType.SYN: self.__handle_syn,
@@ -83,93 +104,108 @@ class Server:
         }
 
         if msg.mtype not in handlers:
-            self.send(MessageType.INVALMSG)
+            self.__send(MessageType.INVALMSG)
             return
 
         handler = handlers[msg.mtype]
         handler(msg)
 
     def __handle_probe(self, _msg: ClientMsg):
-        self.send(MessageType.PROBEACK)
+        self.__send(MessageType.PROBEACK)
+
+    def __get_session_identifier(self):
+        return random.randint(MIN_SESSION_ID, MAX_SESSION_ID)
 
     def __handle_syn(self, _msg: ClientMsg):
         # We don't want to persist any data here, the session has not been created yet
         if self.current_session != NO_SESSION:
-            self.send(MessageType.NOTAVAIL)
+            self.__send(MessageType.NOTAVAIL)
             return
 
-        self.on_creation_session = self.completed_sessions + 1
+        self.on_creation_session = self.__get_session_identifier()
 
         session_data = {
             "session_id": self.on_creation_session,
         }
 
-        self.send(MessageType.SYNACK, session_data)
+        self.__send(MessageType.SYNACK, session_data)
 
     def __handle_syncheck(self, msg: ClientMsg):
-        # Queremos que si el id del mensaje coincide con el de la sesión actual, confirmarle
+        # If the msg session_id is equal to the one on creation, then we confirm the session
         if self.current_session != msg.session_id:
             if (
                 self.current_session != NO_SESSION
                 or msg.session_id != self.on_creation_session
             ):
-                self.send(MessageType.INVALSESSION)
+                self.__send(MessageType.INVALSESSION)
                 return
 
             self.current_session = self.on_creation_session
 
-        # TODO: This should not be hardcoded, it's just an example of the schema
         session_data = {
             "session_id": self.current_session,
-            "address": "rabbitmq",
-            "posts_exchange": "posts",
-            "comments_exchange": "comments",
-            "posts_groups": ["filter_columns_averager:3"],
-            "comments_groups": ["filter_comments:3"],
+            "address": MOM_HOST,
+            "posts_exchange": POSTS_EXCHANGE,
+            "comments_exchange": COMMENTS_EXCHANGE,
+            "posts_groups": self.posts_group,
+            "comments_groups": self.comments_group,
         }
 
-        # TODO: Persist here
-        self.write_state()
+        self.storage.new_session(self.current_session)
 
-        self.send(MessageType.CHECKACK, session_data)
+        self.__send(MessageType.CHECKACK, session_data)
 
     def __handle_result(self, msg: ClientMsg):
         # Here we want to check if computation has finished
         if self.current_session != msg.session_id:
-            self.send(MessageType.INVALSESSION)
+            self.__send(MessageType.INVALSESSION)
             return
 
-        if not self.__work_done():
-            self.send(MessageType.NOTDONE)
+        if self.result is not None:
+            self.__send(MessageType.RESRESP, self.result)
             return
 
-        computation_result = self.__get_computation_results()
+        result = self.collector.try_get_result(self.current_session)
 
-        self.send(MessageType.RESRESP, computation_result)
+        if result is None:
+            self.__send(MessageType.NOTDONE)
+            return
+
+        self.storage.add_result(result)
+        self.collector.ack()
+        self.__send(MessageType.RESRESP, result)
 
     # Fin will always response FINACK, except when it's on a leader-election
     def __handle_fin(self, msg: ClientMsg):
         if self.current_session != msg.session_id:
-            self.send(MessageType.FINACK)
+            self.__send(MessageType.FINACK)
             return
 
         # Reset current session, including computation results
         self.current_session = NO_SESSION
-        self.completed_sessions += 1
+        self.result = None
 
-        # TODO: Persist here
-        self.write_state()
+        self.storage.finish_session(self.current_session)
 
-        self.send(MessageType.FINACK)
+        self.__send(MessageType.FINACK)
 
-    def send(self, mtype: MessageType, payload=None):
+    def __send(self, mtype: MessageType, payload=None):
         if mtype not in LOG_TABLE:
             logger.error(f"Error, trying to send invalid msg {mtype}")
             return
         logger.info(f"Sending {LOG_TABLE[mtype]}")
         self.rep.send_string(ServerMsg(mtype, payload=payload).encode())
 
-    def log_msg(self, msg: ClientMsg):
+    def __receive(self) -> ClientMsg:
+        try:
+            m = self.rep.recv_string()
+            msg = ClientMsg.decode(m)
+            self.__log_msg(msg)
+            return msg
+        except Exception as e:
+            logger.error(f"Error receiving a new message: {e}")
+
+    def __log_msg(self, msg: ClientMsg):
         msg_type = "unknown"
         session_id = "unknown session id"
         if msg.mtype in LOG_TABLE:
@@ -179,18 +215,3 @@ class Server:
             session_id = f"session id {msg.session_id}"
 
         logger.info(f"Received {msg_type} with {session_id}")
-
-    def __work_done(self):
-        self.work_done_count += 1
-        return self.work_done_count % 10 == 0
-
-    def __get_computation_results(self):
-        return {
-            "post_score_avg": 113.25,
-            "best_meme": "-as9idj2jpoisadjc81jlkfsa",
-            "education_memes": [
-                "http://veryfunny.com",
-                "http://veryfunny/school.com",
-                "http://veryfunny/teaching.com",
-            ],
-        }

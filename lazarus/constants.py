@@ -24,8 +24,15 @@ DOCKER_NETWORK: str = "lazarus_net"
 
 EPSILON: float = 0.05
 
-NO_SESSION = -1
+NO_SESSION: int = -1
 
 DEFAULT_SERVER_PORT: int = 8000
 DEFAULT_PROTOCOL_RETRY_SLEEP: int = 5
 DEFAULT_PROTOCOL_TIMEOUT: int = 5
+
+DEFAULT_MOM_HOST: str = "rabbitmq"
+DEFAULT_POSTS_EXCHANGE: str = "posts"
+DEFAULT_COMMENTS_EXCHANGE: str = "comments"
+
+DEFAULT_SERVER_DB_EXCHANGE: str = "serverdb"
+DEFAULT_SERVER_DB_TOPIC: str = "serverdb"
