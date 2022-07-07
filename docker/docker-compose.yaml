@@ -23,6 +23,23 @@ services:
       timeout: 3s
       retries: 5
 
+  coordinator:
+    image: 7574-tp3
+    container_name: coordinator
+    command: coordinator
+    networks:
+      - lazarus_net
+    environment:
+      LAZARUS_DATADIR: ${LAZARUS_DATADIR}
+    volumes:
+      - ../settings.ini:/app/settings.ini:ro
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
   server_0:
     image: 7574-tp3
     container_name: server_0
@@ -74,7 +91,7 @@ services:
       - ../settings.ini:/app/settings.ini:ro
       - ../data:/data:ro
       - ../meme-downloads:/meme-downloads:rw
-    entrypoint: poetry run virgilius -vv /data/the-reddit-irl-dataset-posts-reduced.csv /data/the-reddit-irl-dataset-comments-reduced.csv server_0
+    entrypoint: poetry run virgilius -vv /data/the-reddit-irl-dataset-posts-reduced.csv /data/the-reddit-irl-dataset-comments-reduced.csv server_0 server_1 server_2
     depends_on:
       rabbitmq:
         condition: service_healthy
