@@ -99,15 +99,13 @@ def list_containers_from_config() -> List[SystemContainer]:
                 input_group_arg += f" --input-group {group}:{group_size}"
 
             output_groups = [x for x in v["output_groups"].split(" ") if x != ""]
+            to_server = "servers" in output_groups
+            output_groups = [x for x in output_groups if x != "servers"]
+
             output_groups_sizes = (
                 []
                 if len(output_groups) == 0
-                else [
-                    config[f"group_{g}"]["replicas"]
-                    if g != "servers"
-                    else cfg.lazarus.servers()
-                    for g in output_groups
-                ]
+                else [config[f"group_{g}"]["replicas"] for g in output_groups]
             )
             if int(v["dummy_out"]):
                 output_groups.append("dummy")
@@ -117,6 +115,9 @@ def list_containers_from_config() -> List[SystemContainer]:
                 f"--output-groups {':'.join(x)}"
                 for x in zip(output_groups, output_groups_sizes)
             )
+
+            if to_server:
+                output_groups_arg += "--output-groups servers"
 
             command = f"{v['command']} {v['subcommand']}"
 
