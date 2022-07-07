@@ -1,3 +1,5 @@
+import json
+import hashlib
 import threading
 from multiprocessing import Process
 from typing import Dict, List, Type, Union, TypeVar, Optional, Sequence
@@ -170,7 +172,7 @@ class Node(Process):
             )
 
     def propagate_eos(self):
-        logger.info("Propagating EOS")
+        logger.info("Propagating EOS to %s exchanges", len(self.exchanges_out))
         for exchange in self.exchanges_out:
             exchange.broadcast(
                 Message(
@@ -186,7 +188,14 @@ class Node(Process):
         # TODO: save the identifier instead of just adding 1
         self.received_eos[queue_name] += 1
 
-        logger.info("Received %s/%s EOS", self.received_eos, self.n_eos)
+        for _queue_name, _queue_eos in self.n_eos.items():
+            logger.info(
+                "Received %s/%s EOS from %s",
+                self.received_eos[_queue_name],
+                _queue_eos,
+                _queue_name,
+            )
+
         if all(self.received_eos[k] == v for k, v in self.n_eos.items()):
             self.processed = 0
             collected_results = self.callback.collect() or []
@@ -205,26 +214,35 @@ class Node(Process):
         try:
             message_id = message.get("id") or message.get("data", {}).get("id")
             if message_id is None:
-                raise ValueError("Id can't be found")
+                try:
+                    m = hashlib.md5()
+                    m.update(json.dumps(message.data, sort_keys=True).encode())
+                    message_id = m.hexdigest()[:32]
+                except:
+                    raise ValueError("Id can't be found or built")
+            message_session_id = message["session_id"]
+            message_type = message["type"]
+            message_identifier = (
+                f"{message_session_id}_{message_type}_{queue_name}_{message_id}"
+            )
 
             if self.storage is not None and not self.storage.in_recovery_mode:
                 # Have I seen this message for this session id?
                 # Drop duplicates
-                message_session_id = message["session_id"]
-                message_type = message["type"]
-                message_id = f"{message_session_id}_{message_type}_{message_id}"
 
-                if self.storage.contains(message_id, topic="messages"):
+                if self.storage.contains(message_identifier, topic="messages"):
                     # Drop duplicates
                     logger.info(
-                        "Message %s already seen (present in storage). Dropping.",
+                        "Message %s with id %s already seen as %s. Dropping.",
                         message,
+                        message_identifier,
+                        self.storage.get(message_identifier, topic="messages"),
                     )
                     return
 
             if self.storage is not None:
                 self.storage.put(
-                    message_id,
+                    message_identifier,
                     {**message.data, "origin_queue": queue_name},
                     topic="messages",
                 )
@@ -235,7 +253,7 @@ class Node(Process):
                 self.handle_eos(message, queue_name)
                 return
 
-            message_out = self.callback(message["data"])
+            message_out = self.callback(message["data"], queue_name)
 
             if message_out is not None:
                 self.put_new_message_out(message_out)

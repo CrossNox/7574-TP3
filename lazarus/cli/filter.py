@@ -95,7 +95,6 @@ def posts_score_above_mean(
 @app.command()
 def ed_comments(
     node_id: int = typer.Argument(..., help="The node id"),
-    columns: List[str] = typer.Argument(..., help="List of columns to keep"),
     group_id: str = typer.Option(
         "education_comments_filter", help="The id of the consumer group"
     ),
@@ -142,7 +141,6 @@ def ed_comments(
     node = Node(
         identifier=node_identifier,
         callback=FilterEdComment,
-        columns=columns,
         queue_in=queue_in,
         exchanges_out=exchanges_out,
         storage=storage,

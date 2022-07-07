@@ -14,6 +14,7 @@ logger = get_logger(__name__)
 class LocalStorage(BaseStorage):
     @classmethod
     def load(cls, data_folder: Path):  # pylint: disable=arguments-differ
+        logger.info("Loading storage from %s", data_folder)
         files_to_load = False
         if data_folder.exists():
             files_to_load = True
@@ -47,6 +48,7 @@ class LocalStorage(BaseStorage):
         self.data: Dict[TopicType, Dict[KeyType, MessageType]] = dict()
         self.data_files: Dict[TopicType, TextIOWrapper] = dict()
         self._recovery_mode = False  # TODO: move this to the base class
+        logger.info("New storage from %s", self.data_dir)
 
     @property
     def in_recovery_mode(self):

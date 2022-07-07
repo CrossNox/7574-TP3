@@ -17,7 +17,9 @@ class ExchangeType(Enum):
 
 class RabbitConnection(abc.ABC):
     def __init__(self, host: str):
-        self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=host))
+        self.connection = pika.BlockingConnection(
+            pika.ConnectionParameters(host=host, heartbeat=300)
+        )
         self.channel = self.connection.channel()
         self.channel.confirm_delivery()
 

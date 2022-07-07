@@ -170,7 +170,6 @@ def filter_columns(
 @app.command()
 def filter_comments(
     node_id: int = typer.Argument(..., help="The node id"),
-    columns: List[str] = typer.Argument(..., help="List of columns to keep"),
     group_id: str = typer.Option(
         "comments_filter", help="The id of the consumer group"
     ),
@@ -217,7 +216,6 @@ def filter_comments(
     node = Node(
         identifier=node_identifier,
         callback=CommentFilter,
-        columns=columns,
         queue_in=queue_in,
         exchanges_out=exchanges_out,
         storage=storage,
