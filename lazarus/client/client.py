@@ -22,7 +22,7 @@ RETRY_SLEEP: int = cfg.protocol_retry_sleep(
 
 SERVER_PORT: int = cfg.server_port(default=DEFAULT_SERVER_PORT, cast=int)
 
-TIMEOUT: int = cfg.server_port(default=DEFAULT_PROTOCOL_TIMEOUT, cast=int) * 1000
+TIMEOUT: int = cfg.server_port(default=DEFAULT_PROTOCOL_TIMEOUT, cast=int) * 10000
 
 
 logger = get_logger(__name__)
@@ -50,7 +50,7 @@ class Client:
         posts_exchange = session.payload["posts_exchange"]
         comments_exchange = session.payload["comments_exchange"]
         posts_groups = session.payload["posts_groups"]
-        comments_groups = session.payload["commets_groups"]
+        comments_groups = session.payload["comments_groups"]
 
         logger.info("Starting processes")
 
@@ -206,10 +206,12 @@ class Client:
             self.req.connect(f"tcp://{address}")
             self.req.send_string(ClientMsg(MessageType.PROBE, NO_SESSION).encode())
             m = self.req.recv_string()
+            logger.info(m)
             resp = ServerMsg.decode(m)
 
             return resp
-        except Exception:
+        except Exception as e:
+            logger.info(e)
             logger.info("Connection with server failed")
             self.__close_connection()
             return None

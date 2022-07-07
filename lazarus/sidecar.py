@@ -63,8 +63,7 @@ def monitor_heartbeat(
         tolerance: How many heartbeats the host can miss before being declared gone.
     """
 
-    logger.info("Subscribed to %s:%s", host, port)
-    logger.info("Listening every %s", sleep_time)
+    logger.info("Heartbeat monitor subscribed to %s:%s", host, port)
 
     ctx = zmq.Context.instance()
     socket = ctx.socket(zmq.SUB)

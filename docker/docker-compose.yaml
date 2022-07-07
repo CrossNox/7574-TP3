@@ -40,6 +40,18 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  server:
+    image: 7574-tp3
+    container_name: server_1
+    command: server 1 1 collector --posts-group filter_columns_averager:3 --comments-group filter_comments:3
+    networks:
+      - lazarus_net
+    volumes:
+      - ../settings.ini:/app/settings.ini:ro
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
   client:
     image: 7574-tp3
     container_name: client
@@ -48,7 +60,7 @@ services:
     volumes:
       - ../settings.ini:/app/settings.ini:ro
       - ../data:/data:ro
-    entrypoint: poetry run virgilius -vv /data/the-reddit-irl-dataset-posts-reduced.csv /data/the-reddit-irl-dataset-comments-reduced.csv --posts-groups filter_columns_averager:3 --comments-groups filter_comments:3
+    entrypoint: poetry run virgilius -vv /data/the-reddit-irl-dataset-posts-reduced.csv /data/the-reddit-irl-dataset-comments-reduced.csv server_1
     depends_on:
       rabbitmq:
         condition: service_healthy

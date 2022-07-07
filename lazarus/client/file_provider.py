@@ -59,7 +59,7 @@ class FileProvider(Process):
                     msg = Message(data=m)
                     for exch in exchanges:
                         exch.push(msg)
-
+                    break
                 m = {"type": EOS, "session_id": self.session_id, "id": "client"}
 
                 for exch in exchanges:
