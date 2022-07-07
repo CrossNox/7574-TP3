@@ -59,7 +59,7 @@ class ResultCollector:
         res = None
 
         try:
-            res = self.result_queue.get(block=True)
+            res = self.result_queue.get(block=False)
         except Exception:
             return None
 

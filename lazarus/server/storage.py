@@ -60,9 +60,7 @@ class ServerStorage:
         # TokenMessage
         token = {"type": "token", "data": self.identifier}
 
-        logger.info("before push")
         self.exchange.push(Message(token))
-        logger.info("after push")
 
         # Now we consume the queue until we find the token
 
@@ -109,13 +107,9 @@ class ServerStorage:
             storage
         )
 
-        logger.info("before queue")
         queue = Queue(MOM_HOST, self.identifier)
-        logger.info("before consume")
         queue.consume(__callback)
-        logger.info("after consume")
         finished.wait()
-        logger.info("after wait")
         queue.close()
 
         # Now we recover state from db

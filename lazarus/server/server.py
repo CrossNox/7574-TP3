@@ -63,15 +63,11 @@ class Server:
         while True:
             try:
                 req = self.__receive()
-                logger.info("a")
                 if self.election.i_am_leader():
                     if not i_was_leader:
-                        logger.info("b")
                         self.collector.start()
                         i_was_leader = True
-                        logger.info("c")
                         self.__retrieve_state()
-                        logger.info("d")
                     self.__handle_as_leader(req)
                 else:
                     self.collector.stop()
@@ -99,8 +95,6 @@ class Server:
             self.__send(MessageType.REDIRECT, leader)
 
     def __handle_as_leader(self, msg: ClientMsg):
-        logger.info("e")
-        logger.info(msg)
         handlers = {
             MessageType.PROBE: self.__handle_probe,
             MessageType.SYN: self.__handle_syn,
