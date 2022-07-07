@@ -18,6 +18,7 @@ def revive(
     group: Optional[str] = None,
     group_ids: List[str] = [],
 ):
+    logger.info("Coordinator reviving %s", identifier)
     env = env or {}
     env["LAZARUS_IDENTIFIER"] = identifier
     env["LAZARUS_GROUP"] = group
@@ -127,6 +128,7 @@ def list_containers_from_config() -> List[SystemContainer]:
                     SystemContainer(container_command, identifier, group_id, group_ids)
                 )
 
-    logger.info("Parsed %s system containers", len(containers))
-    logger.info("Parsed containers: %s", containers)
+    logger.info(
+        "Parsed %d containers: %s", len(containers), [c.identifier for c in containers]
+    )
     return containers
