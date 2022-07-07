@@ -18,12 +18,14 @@ def revive(
     env: Optional[Dict] = None,
     group: Optional[str] = None,
     group_ids: List[str] = [],
+    **kwargs,
 ):
     logger.info("Coordinator reviving %s", identifier)
     env = env or {}
     env["LAZARUS_IDENTIFIER"] = identifier
     env["LAZARUS_GROUP"] = group
     env["LAZARUS_GROUPIDS"] = " ".join(group_ids)
+    env.update(kwargs)
     try:
         docker_client = docker.from_env()
         container = docker_client.containers.run(
@@ -59,7 +61,11 @@ class SystemContainer:
 
     def revive(self):
         self.container = revive(
-            self.identifier, self.command, group=self.group, group_ids=self.group_ids
+            self.identifier,
+            self.command,
+            group=self.group,
+            group_ids=self.group_ids,
+            LAZARUS_SERVERS=cfg.lazarus.servers(),
         )
 
     def __del__(self):
