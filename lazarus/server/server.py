@@ -65,27 +65,27 @@ class Server:
 
         while True:
             try:
-                logger.info("run::receive")
+                logger.debug("run::receive")
                 req = self.__receive()
-                logger.info("receive got response")
+                logger.debug("receive got response")
                 if bully_am_leader():
                     if not i_was_leader:
-                        logger.info("starting collector")
+                        logger.debug("starting collector")
                         self.collector.start()
-                        logger.info("collector started")
+                        logger.debug("collector started")
                         i_was_leader = True
-                        logger.info("retrieving state")
+                        logger.debug("retrieving state")
                         self.__retrieve_state()
-                        logger.info("state retrieved")
-                    logger.info("handling as leader")
+                        logger.debug("state retrieved")
+                    logger.debug("handling as leader")
                     self.__handle_as_leader(req)
-                    logger.info("handling as leader")
+                    logger.debug("handling as leader")
                 else:
-                    logger.info("stopping collector")
+                    logger.debug("stopping collector")
                     self.collector.stop()
-                    logger.info("collector stopped")
+                    logger.debug("collector stopped")
                     i_was_leader = False
-                    logger.info("handling as replica")
+                    logger.debug("handling as replica")
                     self.__handle_as_replica(req)
 
             except Exception as e:
