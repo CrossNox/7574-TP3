@@ -1,3 +1,4 @@
+import json
 import time
 import random
 from typing import List
@@ -7,11 +8,10 @@ import zmq
 
 from lazarus.cfg import cfg
 from lazarus.client.file_provider import FileProvider
+from lazarus.utils import get_logger, ascii_to_binary
 from lazarus.common.protocol import ClientMsg, ServerMsg, MessageType
-from lazarus.utils import get_logger, ascii_to_binary, ensure_file_directory
 from lazarus.constants import (
     NO_SESSION,
-    DEFAULT_MEME_PATH,
     DEFAULT_SERVER_PORT,
     DEFAULT_PROTOCOL_TIMEOUT,
     DEFAULT_PROTOCOL_RETRY_SLEEP,
@@ -23,9 +23,8 @@ RETRY_SLEEP: int = cfg.protocol_retry_sleep(
 
 SERVER_PORT: int = cfg.server_port(default=DEFAULT_SERVER_PORT, cast=int)
 
-TIMEOUT: int = cfg.server_port(default=DEFAULT_PROTOCOL_TIMEOUT, cast=int) * 10000
+TIMEOUT: int = cfg.server_port(default=DEFAULT_PROTOCOL_TIMEOUT, cast=int) * 1000
 
-MEME_PATH: Path = cfg.meme_path(default=DEFAULT_MEME_PATH, cast=ensure_file_directory)
 
 logger = get_logger(__name__)
 
@@ -36,7 +35,12 @@ class Client:
         hosts: List[str],
         posts_path: Path,
         comments_path: Path,
+        download_dir: Path,
     ):
+        self.download_dir = download_dir
+        if not self.download_dir.exists():
+            self.download_dir.mkdir(parents=True, exist_ok=True)
+
         self.hosts = hosts
         self.posts_path = posts_path
         self.comments_path = comments_path
@@ -118,8 +122,8 @@ class Client:
                 logger.info(f"New session has been created with id {self.session_id}")
 
                 return resp
-            except Exception as e:
-                logger.error(f"Exception trying to connet to server: {e}")
+            except:  # pylint:disable=bare-except
+                logger.error("Exception trying to connect to server.", exc_info=True)
 
     def __get_computation_result(self):
         while True:
@@ -134,16 +138,29 @@ class Client:
 
             data = resp.payload
 
-            logger.info(f"Score Avg: {data['posts_score_avg']}")
+            logger.info("Score Avg: %s", data["posts_score_avg"])
+            logger.info("Saving to %s", self.download_dir / "score_average")
+            with open(self.download_dir / "score_average", "w") as f:
+                f.write(f"Posts score average {data['posts_score_avg']}")
+                f.write("\n")
+
             logger.info("Education Memes:")
             for meme in data["education_memes"]:
                 logger.info(f" - {meme}")
 
-            best_meme = ascii_to_binary(data["best_meme"])
-            logger.info(f"Downloading best meme to {MEME_PATH}")
+            with open(self.download_dir / "education_posts.json", "w") as f:
+                json.dump(data["education_memes"], f)
 
-            with open(MEME_PATH, "wb") as meme_file:
+            best_meme = ascii_to_binary(data["best_meme"])
+
+            logger.info(
+                "Saving %s bytes of meme to %s",
+                len(best_meme),
+                self.download_dir / "best_meme",
+            )
+            with open(self.download_dir / "best_meme", "wb") as meme_file:
                 meme_file.write(best_meme)
+
             return
 
     def __finish_session(self):
@@ -171,8 +188,8 @@ class Client:
 
     def __connect_to_server(self, on_host=None):
         not_visited = self.get_hosts()
-        host = self.hosts[0]
-        if on_host:
+        host: str
+        if on_host is not None:
             not_visited.remove(on_host)
             host = on_host
         else:
@@ -214,9 +231,8 @@ class Client:
             resp = ServerMsg.decode(m)
 
             return resp
-        except Exception as e:
-            logger.info(e)
-            logger.info("Connection with server failed")
+        except Exception:
+            logger.error("Connection with server failed", exc_info=True)
             self.__close_connection()
             return None
 

@@ -7,7 +7,9 @@ from lazarus.cfg import cfg
 from lazarus.utils import get_logger
 from lazarus.server.storage import ServerStorage
 from lazarus.server.collector import ResultCollector
-from lazarus.server.leader_election import LeaderElectionMock
+from lazarus.bully import am_leader as bully_am_leader
+from lazarus.bully import get_leader as bully_get_leader
+from lazarus.bully import wait_for_leader as bully_wait_for_leader
 from lazarus.common.protocol import LOG_TABLE, ClientMsg, ServerMsg, MessageType
 from lazarus.constants import (
     NO_SESSION,
@@ -48,30 +50,42 @@ class Server:
         self.posts_group = posts_group
         self.comments_group = comments_group
 
-        # TODO: Leader election is hardcoded
-        self.election = LeaderElectionMock()
         self.storage = ServerStorage(s_id, group_identifier, group_size)
         self.collector = ResultCollector(results_queue)
         self.result = None
 
         logger.info(f"Server started on {SERVER_PORT}")
+        logger.debug(f"Server started on {SERVER_PORT}")
 
     def run(self):
-        self.election.wait_for_leader()
+        logger.info("Wait for leader")
+        bully_wait_for_leader()
+        logger.info("Got leader!")
         i_was_leader = False
 
         while True:
             try:
+                logger.debug("run::receive")
                 req = self.__receive()
-                if self.election.i_am_leader():
+                logger.debug("receive got response")
+                if bully_am_leader():
                     if not i_was_leader:
+                        logger.debug("starting collector")
                         self.collector.start()
+                        logger.debug("collector started")
                         i_was_leader = True
+                        logger.debug("retrieving state")
                         self.__retrieve_state()
+                        logger.debug("state retrieved")
+                    logger.debug("handling as leader")
                     self.__handle_as_leader(req)
+                    logger.debug("handling as leader")
                 else:
+                    logger.debug("stopping collector")
                     self.collector.stop()
+                    logger.debug("collector stopped")
                     i_was_leader = False
+                    logger.debug("handling as replica")
                     self.__handle_as_replica(req)
 
             except Exception as e:
@@ -84,7 +98,7 @@ class Server:
 
     def __handle_as_replica(self, _msg: ClientMsg):
         # TODO: Posible bug, que el líder no sea el host
-        leader = self.election.get_leader()  # pylint: disable=assignment-from-none
+        leader = bully_get_leader()
 
         if leader is None:
             self.__send(MessageType.NOTAVAIL)
