@@ -1,11 +1,12 @@
 import os
-from threading import Lock, Thread
 import time
+from threading import Lock, Thread
 from typing import Any, Dict, List
 
 import zmq
 
 from lazarus.cfg import cfg
+from lazarus.utils import get_logger
 from lazarus.constants import (
     PING,
     VICTORY,
@@ -14,7 +15,6 @@ from lazarus.constants import (
     DEFAULT_BULLY_PORT,
     DEFAULT_BULLY_TOLERANCE,
 )
-from lazarus.utils import get_logger
 
 logger = get_logger(__name__)
 
