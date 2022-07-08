@@ -36,10 +36,13 @@ class Client:
         posts_path: Path,
         comments_path: Path,
         download_dir: Path,
+        duplicates: float = 0.0,
     ):
         self.download_dir = download_dir
         if not self.download_dir.exists():
             self.download_dir.mkdir(parents=True, exist_ok=True)
+
+        self.duplicates = duplicates
 
         self.hosts = hosts
         self.posts_path = posts_path
@@ -66,6 +69,7 @@ class Client:
             posts_exchange,
             self.posts_path,
             posts_groups or [],
+            self.duplicates,
         )
 
         pcomments = FileProvider(
@@ -74,6 +78,7 @@ class Client:
             comments_exchange,
             self.comments_path,
             comments_groups or [],
+            self.duplicates,
         )
 
         logger.info("Starting posts relay process")

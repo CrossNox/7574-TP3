@@ -1,4 +1,5 @@
 import csv
+import random
 from typing import List
 from pathlib import Path
 from multiprocessing import Process
@@ -23,6 +24,7 @@ class FileProvider(Process):
         exchange: str,
         file_path: Path,
         groups: List[str],
+        duplicates: float = 0.0,
     ):
         super().__init__()
 
@@ -31,6 +33,7 @@ class FileProvider(Process):
         self.file_path = file_path
         self.exchange_name = exchange
         self.groups = groups
+        self.duplicates = duplicates
 
     def run(self):
         try:
@@ -61,6 +64,9 @@ class FileProvider(Process):
                     msg = Message(data=m)
                     for exch in exchanges:
                         exch.push(msg)
+                        if random.random() < self.duplicates:
+                            logger.info("Sending duplicate message")
+                            exch.push(msg)
                     if count % 1000 == 0:
                         logger.info(f"Sent {count} messages")
                 m = {"type": EOS, "session_id": self.session_id, "id": "client"}

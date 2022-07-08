@@ -22,6 +22,9 @@ def main(
         cfg.lazarus.download_dir(default=DEFAULT_MEME_PATH),
         help="Path to download meme to",
     ),
+    duplicates: float = typer.Option(
+        0.0, min=0.0, max=1.0, help="The probability of sending twice each row"
+    ),
     verbose: int = typer.Option(
         DEFAULT_VERBOSE,
         "--verbose",
@@ -36,6 +39,6 @@ def main(
     """Client entrypoint."""
     config_logging(verbose, pretty)
 
-    client = Client(hosts, posts, comments, download_dir)
+    client = Client(hosts, posts, comments, download_dir, duplicates=duplicates)
 
     client.run()
