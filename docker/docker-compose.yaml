@@ -88,8 +88,8 @@ services:
     networks:
       - lazarus_net
     volumes:
-      - ../settings.ini:/app/settings.ini:ro
-      - ../data:/data:ro
+      - ../settings.ini:/app/settings.ini:rw
+      - ../data:/data:rw
       - ../meme-downloads:/meme-downloads:rw
     entrypoint: poetry run virgilius -vv /data/the-reddit-irl-dataset-posts-reduced.csv /data/the-reddit-irl-dataset-comments-reduced.csv server_0 server_1 server_2
     depends_on:

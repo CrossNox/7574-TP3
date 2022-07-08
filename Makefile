@@ -28,10 +28,10 @@ down:
 .PHONY: down
 
 another-client:
-	$(DOCKER_BIN) run --network lazarus_net -v $(CURDIR)/settings.ini:/app/settings.ini:ro -v $(CURDIR)/data:/data:ro --entrypoint poetry 7574-tp3:latest run virgilius -vv /data/the-reddit-irl-dataset-posts-reduced.csv /data/the-reddit-irl-dataset-comments-reduced.csv server_0 server_1 server_2
+	$(DOCKER_BIN) run --network lazarus_net -v $(CURDIR)/settings.ini:/app/settings.ini:rw -v $(CURDIR)/data:/data:rw -v $(CURDIR)/meme-downloads-2:/meme-downloads:rw --entrypoint poetry 7574-tp3:latest run virgilius -vv /data/the-reddit-irl-dataset-posts-reduced.csv /data/the-reddit-irl-dataset-comments-reduced.csv server_0 server_1 server_2
 
 duplicates-client:
-	$(DOCKER_BIN) run --network lazarus_net -v $(CURDIR)/settings.ini:/app/settings.ini:ro -v $(CURDIR)/data:/data:ro --entrypoint poetry 7574-tp3:latest run virgilius -vv /data/the-reddit-irl-dataset-posts-reduced.csv /data/the-reddit-irl-dataset-comments-reduced.csv server_0 server_1 server_2 --duplicates 1.00
+	$(DOCKER_BIN) run --network lazarus_net -v $(CURDIR)/settings.ini:/app/settings.ini:rw -v $(CURDIR)/data:/data:rw -v $(CURDIR)/meme-downloads-dup:/meme-downloads:rw --entrypoint poetry 7574-tp3:latest run virgilius -vv /data/the-reddit-irl-dataset-posts-reduced.csv /data/the-reddit-irl-dataset-comments-reduced.csv server_0 server_1 server_2 --duplicates 1.00
 
 docker-image:
 	$(DOCKER_BIN) build -f ./docker/Dockerfile -t "7574-tp3:latest" .
