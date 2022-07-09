@@ -1,12 +1,11 @@
-import time
-from typing import Any, Dict, List
 from multiprocessing import Process
 from multiprocessing.sharedctypes import Synchronized
+import time
+from typing import Any, Dict, List
 
 import zmq
 
 from lazarus.cfg import cfg
-from lazarus.utils import get_logger
 from lazarus.constants import (
     PING,
     UNKNOWN,
@@ -17,6 +16,7 @@ from lazarus.constants import (
     DEFAULT_BULLY_PORT,
     DEFAULT_BULLY_TOLERANCE,
 )
+from lazarus.utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -50,6 +50,10 @@ def get_leader_state(leader_value) -> str:
     leader = leader_value.value
     logger.info("Leaving get_leader_state w/leader %s", leader)
     return leader
+
+
+def set_leader_state(leader_value: Synchronized, state: str):
+    leader_value.value = state
 
 
 def try_send(container, sibling, socket, msg, tolerance):
@@ -92,11 +96,11 @@ def elect_leader(
         default=DEFAULT_BULLY_TOLERANCE, cast=int
     ),
 ):
-    if leader_value.value == LOOKINGFOR:
+    if get_leader_state(leader_value) == LOOKINGFOR:
         logger.info("Asked for a new leader election, but one is already running!")
         return  # We are already on a election
 
-    leader_value.value = LOOKINGFOR
+    set_leader_state(leader_value, LOOKINGFOR)
     logger.info("%s starting leader election for size-%d group", container, len(group))
 
     ctx = zmq.Context.instance()
@@ -133,7 +137,7 @@ def elect_leader(
                 leader_notified.append(sibling)
 
         logger.info("%s is the leader", container)
-        leader_value.value = container
+        set_leader_state(leader_value, container)
         return
 
 
@@ -191,7 +195,7 @@ class LeaderElectionListener(Process):
         elif response["type"] == VICTORY:
             logger.info("Received VICTORY")
             try_send(self.identifier, "sibling", self.socket, ping_msg, self.tolerance)
-            self.leader_value = response["host"]
+            set_leader_state(self.leader_value, response["host"])
 
     def run(self):
         while True:
