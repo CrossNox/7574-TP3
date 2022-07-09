@@ -1,11 +1,12 @@
-from multiprocessing import Event, Process
-from multiprocessing.synchronize import Event as EventClass
 import time
+from multiprocessing import Event, Process
 from typing import List, Tuple, Callable, Optional
+from multiprocessing.synchronize import Event as EventClass
 
 import zmq
 
 from lazarus.cfg import cfg
+from lazarus.utils import get_logger
 from lazarus.constants import (
     PING,
     EPSILON,
@@ -14,7 +15,6 @@ from lazarus.constants import (
     DEFAULT_SLEEP_TIME,
     DEFAULT_HEARTBEAT_PORT,
 )
-from lazarus.utils import get_logger
 
 logger = get_logger(__name__)
 
