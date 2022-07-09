@@ -1,9 +1,9 @@
-from typing import Callable
 from threading import Event, Thread
+from typing import Callable
 
-from lazarus.utils import get_logger
 from lazarus.mom.message import Message
 from lazarus.mom.rabbit import RabbitConnection
+from lazarus.utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -36,13 +36,13 @@ class Queue(RabbitConnection):
             self.channel.start_consuming()
         except Exception as e:
             logger.error(
-                "Exception captured on Queue consumer thread: %s", e, exc_info=True
+                "Exception captured on Queue consumer process: %s", e, exc_info=True
             )
             raise
 
     def consume(self, callback: Callable[[Message], None]):
         """
-        Starts consuming queue in a new thread with given callback as handler
+        Starts consuming queue in a new process with given callback as handler
         """
 
         def __callback(ch, method, _, body: bytes):

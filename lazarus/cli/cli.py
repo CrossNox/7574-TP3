@@ -1,27 +1,29 @@
+from multiprocessing import Value
 from typing import List
 
 import typer
 
+from lazarus.bully import UNKNOWN, LeaderElectionListener, get_leader, elect_leader
 from lazarus.cfg import cfg
-from lazarus.mom.queue import Queue
-from lazarus.nodes.node import Node
-from lazarus.tasks.joiner import Joiner
-from lazarus.server.server import Server
-from lazarus.tasks.collect import Collector
-from lazarus.cli.sink import app as sink_app
-from lazarus.storage.local import LocalStorage
-from lazarus.cli.filter import app as filter_app
 from lazarus.cli.dataset import app as dataset_app
 from lazarus.cli.download import app as download_app
+from lazarus.cli.filter import app as filter_app
+from lazarus.cli.sink import app as sink_app
 from lazarus.cli.transform import app as transform_app
-from lazarus.sidecar import HeartbeatSender, HeartbeatsListener
-from lazarus.bully import LeaderElectionListener, get_leader, elect_leader
+from lazarus.constants import BULLY_TIMEOUT_MS, DEFAULT_DATA_DIR, DEFAULT_HEARTBEAT_PORT
 from lazarus.docker_utils import SystemContainer, list_containers_from_config
 from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
-from lazarus.constants import BULLY_TIMEOUT_MS, DEFAULT_DATA_DIR, DEFAULT_HEARTBEAT_PORT
+from lazarus.mom.queue import Queue
+from lazarus.nodes.node import Node
+from lazarus.server.server import Server
+from lazarus.sidecar import HeartbeatSender, HeartbeatsListener
+from lazarus.storage.local import LocalStorage
+from lazarus.tasks.collect import Collector
+from lazarus.tasks.joiner import Joiner
 from lazarus.utils import (
     DEFAULT_PRETTY,
     DEFAULT_VERBOSE,
+    LeaderValue,
     get_logger,
     ensure_path,
     parse_group,
@@ -58,13 +60,24 @@ def main(
 
 
 class ElectLeader:
-    def __init__(self, node_id: str, group: List[str]):
+    def __init__(self, node_id: str, group: List[str], leader_value):
         self.node_id = node_id
         self.group = group
+        self.leader_value = leader_value
 
     def __call__(self, host, port):
         if get_leader() in (host, None):
-            elect_leader(self.node_id, self.group)
+            elect_leader(self.node_id, self.group, self.leader_value)
+
+
+class HealthyElectionCallback:
+    def __init__(self, node_id, group, leader_value):
+        self.node_id = node_id
+        self.group = group
+        self.leader_value = leader_value
+
+    def __call__(self):
+        elect_leader(self.node_id, self.group, self.leader_value)
 
 
 @app.command()
@@ -81,18 +94,22 @@ def server(
     group = [build_node_id(group_identifier, i) for i in range(group_size)]
 
     hosts = [(h, DEFAULT_HEARTBEAT_PORT) for h in filter(lambda x: x != node_id, group)]
-    hbs = HeartbeatSender()
+    hbs = HeartbeatSender(node_id)
+
+    leader_value = Value(str, UNKNOWN)
+
     hbl = HeartbeatsListener(
-        hosts, ElectLeader(node_id, group), sleep_time=BULLY_TIMEOUT_MS // 1000
+        hosts,
+        ElectLeader(node_id, group, leader_value),
+        sleep_time=BULLY_TIMEOUT_MS // 1000,
+        first_healthy_callback=HealthyElectionCallback(node_id, group, leader_value),
     )
 
     hbs.start()
     hbl.start()
 
-    lel = LeaderElectionListener(node_id, group)
+    lel = LeaderElectionListener(node_id, group, leader_value)
     lel.start()
-
-    elect_leader(node_id, group)
 
     new_server = Server(
         server_id,
@@ -102,7 +119,7 @@ def server(
         comments_group,
         results_queue,
     )
-    new_server.run()
+    new_server.start()
 
 
 class HeartbeatReviverCallback:
@@ -117,8 +134,8 @@ class HeartbeatReviverCallback:
 @app.command()
 def coordinator():
     containers = list_containers_from_config()
-    for container in containers:
-        container.revive()
+    # for container in containers:
+    #    container.revive()
 
     callback = HeartbeatReviverCallback(containers)
     hbl = HeartbeatsListener(
@@ -135,8 +152,7 @@ def collect(
     node_id: int = typer.Argument(..., help="The node id"),
     keep: List[str] = typer.Argument(..., help="Columns to keep from each input"),
     group_id: str = typer.Option(
-        "sentiment_joiner",
-        help="The id of the consumer group",
+        "sentiment_joiner", help="The id of the consumer group",
     ),
     input_group: List[str] = typer.Option(
         ..., help="<name>:<n_subscribers> of the input groups"
@@ -146,7 +162,9 @@ def collect(
     ),
     rabbit_host: str = typer.Option("rabbitmq", help="The address for rabbitmq"),
 ):
-    heartbeat_sender = HeartbeatSender()
+    node_identifier: str = build_node_id(group_id, node_id)
+
+    heartbeat_sender = HeartbeatSender(node_identifier)
     heartbeat_sender.start()
 
     queues_in: List[Queue] = []
@@ -192,8 +210,6 @@ def collect(
         for output_group_id, output_group_size in parsed_output_groups
     ]
 
-    node_identifier: str = build_node_id(group_id, node_id)
-
     storage = LocalStorage.load(
         cfg.lazarus.data_dir(cast=ensure_path, default=DEFAULT_DATA_DIR)
         / node_identifier
@@ -215,10 +231,7 @@ def collect(
 def join(
     node_id: int = typer.Argument(..., help="The node id"),
     merge_keys: List[str] = typer.Argument(..., help="The keys to merge on the tables"),
-    group_id: str = typer.Option(
-        ...,
-        help="The id of the consumer group",
-    ),
+    group_id: str = typer.Option(..., help="The id of the consumer group",),
     input_group: List[str] = typer.Option(
         ..., help="<name>:<n_subscribers> of the input groups"
     ),
@@ -227,7 +240,9 @@ def join(
     ),
     rabbit_host: str = typer.Option("rabbitmq", help="The address for rabbitmq"),
 ):
-    heartbeat_sender = HeartbeatSender()
+    node_identifier: str = build_node_id(group_id, node_id)
+
+    heartbeat_sender = HeartbeatSender(node_identifier)
     heartbeat_sender.start()
 
     queues_in: List[Queue] = []
@@ -258,7 +273,6 @@ def join(
         )
         for output_group_id, output_group_size in parsed_output_groups
     ]
-    node_identifier: str = build_node_id(group_id, node_id)
 
     storage = LocalStorage.load(
         cfg.lazarus.data_dir(cast=ensure_path, default=DEFAULT_DATA_DIR)

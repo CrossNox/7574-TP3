@@ -27,6 +27,12 @@ down:
 	docker-compose -f docker/docker-compose.yaml down --remove-orphans
 .PHONY: down
 
+stop-s2:
+	docker-compose -f docker/docker-compose.yaml stop server_2
+
+start-s2:
+	docker-compose -f docker/docker-compose.yaml restart server_2
+
 another-client:
 	$(DOCKER_BIN) run --network lazarus_net -v $(CURDIR)/settings.ini:/app/settings.ini:rw -v $(CURDIR)/data:/data:rw -v $(CURDIR)/meme-downloads-2:/meme-downloads:rw --entrypoint poetry 7574-tp3:latest run virgilius -vv /data/the-reddit-irl-dataset-posts-reduced.csv /data/the-reddit-irl-dataset-comments-reduced.csv server_0 server_1 server_2
 

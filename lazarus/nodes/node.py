@@ -1,20 +1,19 @@
-import json
 import hashlib
-import threading
-from multiprocessing import Process
+import json
+from multiprocessing import Lock, Event, Process
 from typing import Dict, List, Type, Union, TypeVar, Optional, Sequence
 
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 from lazarus.constants import EOS
+from lazarus.exceptions import IncorrectSessionId
+from lazarus.mom.exchange import Exchange
+from lazarus.mom.message import Message
 from lazarus.mom.queue import Queue
+from lazarus.storage.base import BaseStorage
 from lazarus.tasks.base import Task
 from lazarus.utils import get_logger
-from lazarus.mom.message import Message
-from lazarus.mom.exchange import Exchange
-from lazarus.storage.base import BaseStorage
-from lazarus.exceptions import IncorrectSessionId
 
 logger = get_logger(__name__)
 
@@ -66,7 +65,7 @@ class Node(Process):
         logger.info("Solved dependencies %s", self.dependencies)
         self.callback = self.callback_cls(**self.dependencies, **self.callback_kwargs)
 
-        self.run_lock = threading.Lock()
+        self.run_lock = Lock()
 
         # If there are any messages, and we need to recover, reprocess each message
         if self.storage is not None and self.storage.contains_topic("messages"):
@@ -105,7 +104,7 @@ class Node(Process):
         return solved_dependencies
 
     def fetch_result(self, key: str, queue: Queue):
-        done_event = threading.Event()
+        done_event = Event()
 
         class DummyCallback:
             def __init__(self, done, key, n_eos: int = 1):

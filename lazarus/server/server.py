@@ -1,15 +1,13 @@
+from multiprocessing import Process
 import random
 from typing import List
 
 import zmq
 
-from lazarus.cfg import cfg
-from lazarus.utils import get_logger
-from lazarus.server.storage import ServerStorage
-from lazarus.server.collector import ResultCollector
 from lazarus.bully import am_leader as bully_am_leader
 from lazarus.bully import get_leader as bully_get_leader
 from lazarus.bully import wait_for_leader as bully_wait_for_leader
+from lazarus.cfg import cfg
 from lazarus.common.protocol import LOG_TABLE, ClientMsg, ServerMsg, MessageType
 from lazarus.constants import (
     NO_SESSION,
@@ -18,6 +16,9 @@ from lazarus.constants import (
     DEFAULT_POSTS_EXCHANGE,
     DEFAULT_COMMENTS_EXCHANGE,
 )
+from lazarus.server.collector import ResultCollector
+from lazarus.server.storage import ServerStorage
+from lazarus.utils import get_logger
 
 SERVER_PORT: int = cfg.server_port(default=DEFAULT_SERVER_PORT, cast=int)
 MOM_HOST: str = cfg.mom_host(default=DEFAULT_MOM_HOST)
@@ -31,7 +32,7 @@ MAX_SESSION_ID: int = 100_000_000
 logger = get_logger(__name__)
 
 
-class Server:
+class Server(Process):
     def __init__(
         self,
         s_id: int,
@@ -41,6 +42,7 @@ class Server:
         comments_group: List[str],
         results_queue: str,
     ):
+        super().__init__()
         self.context = zmq.Context.instance()  # type: ignore
         self.context.setsockopt(zmq.LINGER, 0)
         self.rep = self.context.socket(zmq.REP)

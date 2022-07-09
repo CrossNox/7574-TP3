@@ -46,3 +46,7 @@ DEFAULT_SERVER_DB_EXCHANGE: str = "serverdb"
 DEFAULT_SERVER_DB_TOPIC: str = "serverdb"
 
 DEFAULT_MEME_PATH: pathlib.Path = pathlib.Path("/meme-downloads")
+
+
+UNKNOWN: str = "UNKNOWN"
+LOOKINGFOR: str = "LOOKINGFOR"

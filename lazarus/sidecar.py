@@ -1,11 +1,10 @@
+from multiprocessing import Event, Process
 import time
-from threading import Thread
-from typing import List, Tuple, Callable
+from typing import List, Tuple, Callable, Optional
 
 import zmq
 
 from lazarus.cfg import cfg
-from lazarus.utils import get_logger
 from lazarus.constants import (
     PING,
     EPSILON,
@@ -14,13 +13,15 @@ from lazarus.constants import (
     DEFAULT_SLEEP_TIME,
     DEFAULT_HEARTBEAT_PORT,
 )
+from lazarus.utils import get_logger
 
 logger = get_logger(__name__)
 
 
-class HeartbeatSender(Thread):
+class HeartbeatSender(Process):
     def __init__(
         self,
+        node_id: str,
         sleep_time: int = cfg.lazarus.sleep_time(default=DEFAULT_SLEEP_TIME, cast=int),
         port: int = cfg.lazarus.heartbeat_port(
             default=DEFAULT_HEARTBEAT_PORT, cast=int
@@ -28,6 +29,7 @@ class HeartbeatSender(Thread):
     ):
         """Publish a heartbeat at regular intervals to notify you are still alive."""
         super().__init__()
+        self.node_id = node_id
         self.sleep_time = sleep_time
         self.port = port
 
@@ -35,7 +37,7 @@ class HeartbeatSender(Thread):
 
     def send_heartbeat(self):
         logger.info("Sending heartbeat")
-        self.socket.send_string(HEARTBEAT)
+        self.socket.send_json(dict(payload=HEARTBEAT, node_id=self.node_id))
 
     def run(self):
         ctx = zmq.Context.instance()
@@ -51,7 +53,12 @@ class HeartbeatSender(Thread):
 
 
 def monitor_heartbeat(
-    host: str, port: int, error_callback: Callable, sleep_time: int, tolerance: int = 3
+    host: str,
+    port: int,
+    error_callback: Callable,
+    healthy: Event,
+    sleep_time: int,
+    tolerance: int = 3,
 ):
     """Monitor the heartbeat of a host.
 
@@ -74,11 +81,13 @@ def monitor_heartbeat(
     misses = 0
     while True:
         try:
-            heartbeat = socket.recv_string()
-            if not heartbeat == HEARTBEAT:
+            heartbeat = socket.recv_json()
+            if not heartbeat["payload"] == HEARTBEAT or heartbeat["node_id"] != host:
                 raise ValueError(f"Expected heartbeat {HEARTBEAT}, got {heartbeat}")
-            logger.info("Heartbeat from %s Ok", host)
+            logger.info("Heartbeat %s from %s Ok", heartbeat, host)
             misses = 0
+            if not healthy.is_set():
+                healthy.set()
         except zmq.error.ZMQError as e:
             if e.errno == zmq.EAGAIN:
                 misses += 1
@@ -92,36 +101,54 @@ def monitor_heartbeat(
                 misses = 0
 
 
-class HeartbeatsListener(Thread):
+class HeartbeatsListener(Process):
     def __init__(
         self,
         hosts: List[Tuple[str, int]],
         error_callback: Callable,
         sleep_time: int = cfg.lazarus.sleep_time(default=DEFAULT_SLEEP_TIME, cast=int),
+        first_healthy_callback: Optional[Callable] = None,
     ):
         """Monitor the heartbeats of hosts."""
         super().__init__()
         self.sleep_time = sleep_time
         self.hosts = hosts
         self.error_callback = error_callback
+        self.first_healthy_callback = first_healthy_callback
 
     def run(self):
+        healthies = [Event() for _ in self.hosts]
         listeners = [
-            Thread(
+            Process(
                 target=monitor_heartbeat,
-                args=(host, port, self.error_callback, self.sleep_time * 1000),
+                args=(
+                    host,
+                    port,
+                    self.error_callback,
+                    healthy,
+                    self.sleep_time * 1000,
+                ),
             )
-            for host, port in self.hosts
+            for (host, port), healthy in zip(self.hosts, healthies)
         ]
         logger.info("Listening to the heartbeats of %s", len(listeners))
         for p in listeners:
             p.start()
+        logger.info("Waiting for all to be healthy")
+        for h in healthies:
+            h.wait()
+        logger.info("All healthy!")
+        if self.first_healthy_callback is not None:
+            logger.info("Running healthy callback")
+            self.first_healthy_callback()
+            logger.info("Healthy callback ran!")
+            logger.info("Leader is %s", cfg.lazarus.group_leader())
         for p in listeners:
             p.join()
         # TODO: catch KeyboardInterrupt and SIGTERM
 
 
-class PingReplier(Thread):
+class PingReplier(Process):
     def __init__(self, port: int = cfg.lazarus.ping_port(default=DEFAULT_PING_PORT)):
         """Reply to pings to notify others that you are still alive."""
         super().__init__()
@@ -178,7 +205,7 @@ def monitor_ping(
                 misses = 0
 
 
-class PingMonitor(Thread):
+class PingMonitor(Process):
     def __init__(
         self,
         hosts: List[Tuple[str, int]],
@@ -199,7 +226,7 @@ class PingMonitor(Thread):
 
     def run(self):
         listeners = [
-            Thread(
+            Process(
                 target=monitor_ping,
                 args=(host, port, self.error_callback, self.sleep_time * 1000),
             )

@@ -2,9 +2,10 @@ from dataclasses import dataclass
 from typing import Dict, List, Union, Optional
 
 import docker
+
 from lazarus.cfg import cfg
-from lazarus.utils import get_logger, queue_in_name
 from lazarus.constants import DOCKER_NETWORK, DEFAULT_DATA_DIR, DOCKER_IMAGE_NAME
+from lazarus.utils import get_logger, queue_in_name
 
 logger = get_logger(__name__)
 
@@ -34,12 +35,21 @@ def revive(
             detach=True,
             network=network,
             environment=env,
-            volumes=[
-                f"{cfg.lazarus.datadir()}:{DEFAULT_DATA_DIR}",
-            ],
+            volumes=[f"{cfg.lazarus.datadir()}:{DEFAULT_DATA_DIR}",],
             remove=True,
         )
-        return container
+
+        import zmq
+        from lazarus.constants import HEARTBEAT
+
+        ctx = zmq.Context()
+        sub = ctx.socket(zmq.SUB)
+        sub.setsockopt_string(zmq.SUBSCRIBE, "")
+        hb = sub.recv_json()
+        if hb["node_id"] == identifier and hb["payload"] == HEARTBEAT:
+            return container
+        else:
+            raise ValueError("Docker failed!")
     except docker.errors.ImageNotFound:
         logger.error(
             "Image %s was not found, please check configuration", image, exc_info=True
