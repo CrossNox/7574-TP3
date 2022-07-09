@@ -1,14 +1,17 @@
-from multiprocessing import Process
-from multiprocessing.sharedctypes import SynchronizedString
 import random
 from typing import List
+from multiprocessing import Process
+from multiprocessing.sharedctypes import SynchronizedString
 
 import zmq
 
+from lazarus.cfg import cfg
+from lazarus.utils import get_logger
+from lazarus.server.storage import ServerStorage
+from lazarus.server.collector import ResultCollector
 from lazarus.bully import am_leader as bully_am_leader
 from lazarus.bully import get_leader as bully_get_leader
 from lazarus.bully import wait_for_leader as bully_wait_for_leader
-from lazarus.cfg import cfg
 from lazarus.common.protocol import LOG_TABLE, ClientMsg, ServerMsg, MessageType
 from lazarus.constants import (
     NO_SESSION,
@@ -17,9 +20,6 @@ from lazarus.constants import (
     DEFAULT_POSTS_EXCHANGE,
     DEFAULT_COMMENTS_EXCHANGE,
 )
-from lazarus.server.collector import ResultCollector
-from lazarus.server.storage import ServerStorage
-from lazarus.utils import get_logger
 
 SERVER_PORT: int = cfg.server_port(default=DEFAULT_SERVER_PORT, cast=int)
 MOM_HOST: str = cfg.mom_host(default=DEFAULT_MOM_HOST)

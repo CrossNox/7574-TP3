@@ -1,13 +1,14 @@
 import json
-from pathlib import Path
-import random
 import time
+import random
 from typing import List
+from pathlib import Path
 
 import zmq
 
 from lazarus.cfg import cfg
 from lazarus.client.file_provider import FileProvider
+from lazarus.utils import get_logger, ascii_to_binary
 from lazarus.common.protocol import ClientMsg, ServerMsg, MessageType
 from lazarus.constants import (
     NO_SESSION,
@@ -15,7 +16,6 @@ from lazarus.constants import (
     DEFAULT_PROTOCOL_TIMEOUT,
     DEFAULT_PROTOCOL_RETRY_SLEEP,
 )
-from lazarus.utils import get_logger, ascii_to_binary
 
 RETRY_SLEEP: int = cfg.protocol_retry_sleep(
     default=DEFAULT_PROTOCOL_RETRY_SLEEP, cast=int
