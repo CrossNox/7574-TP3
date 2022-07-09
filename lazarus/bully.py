@@ -1,11 +1,12 @@
-from multiprocessing import Process
-from multiprocessing.sharedctypes import Synchronized
 import time
 from typing import Any, Dict, List
+from multiprocessing import Process
+from multiprocessing.sharedctypes import Synchronized
 
 import zmq
 
 from lazarus.cfg import cfg
+from lazarus.utils import get_logger
 from lazarus.constants import (
     PING,
     UNKNOWN,
@@ -16,7 +17,6 @@ from lazarus.constants import (
     DEFAULT_BULLY_PORT,
     DEFAULT_BULLY_TOLERANCE,
 )
-from lazarus.utils import get_logger
 
 logger = get_logger(__name__)
 
