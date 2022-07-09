@@ -1,24 +1,15 @@
-from typing import List
 from multiprocessing import Array, Event, Process
+from typing import List
 
 import typer
 
+from lazarus.bully import LeaderElectionListener, elect_leader
 from lazarus.cfg import cfg
-from lazarus.mom.queue import Queue
-from lazarus.nodes.node import Node
-from lazarus.tasks.joiner import Joiner
-from lazarus.server.server import Server
-from lazarus.tasks.collect import Collector
-from lazarus.cli.sink import app as sink_app
-from lazarus.storage.local import LocalStorage
-from lazarus.cli.filter import app as filter_app
 from lazarus.cli.dataset import app as dataset_app
 from lazarus.cli.download import app as download_app
+from lazarus.cli.filter import app as filter_app
+from lazarus.cli.sink import app as sink_app
 from lazarus.cli.transform import app as transform_app
-from lazarus.bully import LeaderElectionListener, elect_leader
-from lazarus.sidecar import HeartbeatSender, HeartbeatsListener
-from lazarus.docker_utils import SystemContainer, list_containers_from_config
-from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.constants import (
     UNKNOWN,
     LOOKINGFOR,
@@ -27,6 +18,15 @@ from lazarus.constants import (
     MAX_IDENTIFIER_SIZE,
     DEFAULT_HEARTBEAT_PORT,
 )
+from lazarus.docker_utils import SystemContainer, list_containers_from_config
+from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
+from lazarus.mom.queue import Queue
+from lazarus.nodes.node import Node
+from lazarus.server.server import Server
+from lazarus.sidecar import HeartbeatSender, HeartbeatsListener
+from lazarus.storage.local import LocalStorage
+from lazarus.tasks.collect import Collector
+from lazarus.tasks.joiner import Joiner
 from lazarus.utils import (
     DEFAULT_PRETTY,
     DEFAULT_VERBOSE,
@@ -142,7 +142,6 @@ def server(
     elect_leader(node_id, group, leader_value)
     logger.info("Leader election over, %s", leader_value.value.decode())
 
-    hbl.join()
     new_server = Server(
         server_id,
         group_identifier,
@@ -185,8 +184,7 @@ def collect(
     node_id: int = typer.Argument(..., help="The node id"),
     keep: List[str] = typer.Argument(..., help="Columns to keep from each input"),
     group_id: str = typer.Option(
-        "sentiment_joiner",
-        help="The id of the consumer group",
+        "sentiment_joiner", help="The id of the consumer group",
     ),
     input_group: List[str] = typer.Option(
         ..., help="<name>:<n_subscribers> of the input groups"
@@ -265,10 +263,7 @@ def collect(
 def join(
     node_id: int = typer.Argument(..., help="The node id"),
     merge_keys: List[str] = typer.Argument(..., help="The keys to merge on the tables"),
-    group_id: str = typer.Option(
-        ...,
-        help="The id of the consumer group",
-    ),
+    group_id: str = typer.Option(..., help="The id of the consumer group",),
     input_group: List[str] = typer.Option(
         ..., help="<name>:<n_subscribers> of the input groups"
     ),

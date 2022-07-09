@@ -1,12 +1,11 @@
-import time
-from typing import Any, Dict, List
 from multiprocessing import Process
 from multiprocessing.sharedctypes import SynchronizedString
+import time
+from typing import Any, Dict, List
 
 import zmq
 
 from lazarus.cfg import cfg
-from lazarus.utils import get_logger
 from lazarus.constants import (
     PING,
     UNKNOWN,
@@ -17,6 +16,7 @@ from lazarus.constants import (
     DEFAULT_BULLY_PORT,
     DEFAULT_BULLY_TOLERANCE,
 )
+from lazarus.utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -194,7 +194,8 @@ class LeaderElectionListener(Process):
             else:
                 # TODO: We are not joining processes right here
                 worker = Process(
-                    target=elect_leader, args=(self.identifier, self.group)
+                    target=elect_leader,
+                    args=(self.identifier, self.group, self.leader_value),
                 )
                 worker.start()
 
