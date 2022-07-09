@@ -40,13 +40,14 @@ def revive(
         )
 
         import zmq
+
         from lazarus.constants import HEARTBEAT
 
         ctx = zmq.Context()
         sub = ctx.socket(zmq.SUB)
         sub.setsockopt_string(zmq.SUBSCRIBE, "")
         hb = sub.recv_json()
-        if hb["node_id"] == identifier and hb["payload"] == HEARTBEAT:
+        if hb["node_id"] == identifier and hb["payload"] == HEARTBEAT:  # type: ignore
             return container
         else:
             raise ValueError("Docker failed!")

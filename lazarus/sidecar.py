@@ -1,4 +1,5 @@
 from multiprocessing import Event, Process
+from multiprocessing.synchronize import Event as EventClass
 import time
 from typing import List, Tuple, Callable, Optional
 
@@ -56,7 +57,7 @@ def monitor_heartbeat(
     host: str,
     port: int,
     error_callback: Callable,
-    healthy: Event,
+    healthy: EventClass,
     sleep_time: int,
     tolerance: int = 3,
 ):
@@ -82,7 +83,7 @@ def monitor_heartbeat(
     while True:
         try:
             heartbeat = socket.recv_json()
-            if not heartbeat["payload"] == HEARTBEAT or heartbeat["node_id"] != host:
+            if not heartbeat["payload"] == HEARTBEAT or heartbeat["node_id"] != host:  # type: ignore
                 raise ValueError(f"Expected heartbeat {HEARTBEAT}, got {heartbeat}")
             logger.info("Heartbeat %s from %s Ok", heartbeat, host)
             misses = 0

@@ -1,16 +1,23 @@
+from ctypes import c_wchar_p
 from multiprocessing import Value
 from typing import List
 
 import typer
 
-from lazarus.bully import UNKNOWN, LeaderElectionListener, get_leader, elect_leader
+from lazarus.bully import LeaderElectionListener, elect_leader
 from lazarus.cfg import cfg
 from lazarus.cli.dataset import app as dataset_app
 from lazarus.cli.download import app as download_app
 from lazarus.cli.filter import app as filter_app
 from lazarus.cli.sink import app as sink_app
 from lazarus.cli.transform import app as transform_app
-from lazarus.constants import BULLY_TIMEOUT_MS, DEFAULT_DATA_DIR, DEFAULT_HEARTBEAT_PORT
+from lazarus.constants import (
+    UNKNOWN,
+    LOOKINGFOR,
+    BULLY_TIMEOUT_MS,
+    DEFAULT_DATA_DIR,
+    DEFAULT_HEARTBEAT_PORT,
+)
 from lazarus.docker_utils import SystemContainer, list_containers_from_config
 from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.mom.queue import Queue
@@ -23,7 +30,6 @@ from lazarus.tasks.joiner import Joiner
 from lazarus.utils import (
     DEFAULT_PRETTY,
     DEFAULT_VERBOSE,
-    LeaderValue,
     get_logger,
     ensure_path,
     parse_group,
@@ -66,7 +72,7 @@ class ElectLeader:
         self.leader_value = leader_value
 
     def __call__(self, host, port):
-        if get_leader() in (host, None):
+        if self.leader_value.value in (host, UNKNOWN, LOOKINGFOR):
             elect_leader(self.node_id, self.group, self.leader_value)
 
 
@@ -96,7 +102,7 @@ def server(
     hosts = [(h, DEFAULT_HEARTBEAT_PORT) for h in filter(lambda x: x != node_id, group)]
     hbs = HeartbeatSender(node_id)
 
-    leader_value = Value(str, UNKNOWN)
+    leader_value = Value(c_wchar_p, UNKNOWN)
 
     hbl = HeartbeatsListener(
         hosts,

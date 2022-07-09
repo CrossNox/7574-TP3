@@ -2,6 +2,11 @@ from multiprocessing import Event
 from typing import Dict, List, Union
 
 from lazarus.cfg import cfg
+from lazarus.mom.queue import Queue
+from lazarus.mom.message import Message
+from lazarus.storage.local import LocalStorage
+from lazarus.utils import coalesce, get_logger, ensure_path, build_node_id
+from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
 from lazarus.constants import (
     NO_SESSION,
     DEFAULT_DATA_DIR,
@@ -9,11 +14,6 @@ from lazarus.constants import (
     DEFAULT_SERVER_DB_TOPIC,
     DEFAULT_SERVER_DB_EXCHANGE,
 )
-from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
-from lazarus.mom.message import Message
-from lazarus.mom.queue import Queue
-from lazarus.storage.local import LocalStorage
-from lazarus.utils import coalesce, get_logger, ensure_path, build_node_id
 
 MOM_HOST: str = cfg.mom_host(default=DEFAULT_MOM_HOST)
 DB_EXCHANGE: str = cfg.server_db_exchange(default=DEFAULT_SERVER_DB_EXCHANGE)
@@ -71,7 +71,10 @@ class ServerStorage:
 
         class DummyCallback:
             def __init__(
-                self, identifier, finished, storage,
+                self,
+                identifier,
+                finished,
+                storage,
             ):
                 self.identifier = identifier
                 self.finished = finished

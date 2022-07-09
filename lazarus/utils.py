@@ -2,16 +2,16 @@
 
 import base64
 import logging
-from multiprocessing import Value
 import pathlib
-from typing import Tuple, Callable, Optional
+from multiprocessing import Value
+from typing import Tuple, Callable
 
-import docker
+import pika
 import typer
 import urllib3
 
+import docker
 from lazarus.constants import UNKNOWN
-import pika
 
 DEFAULT_PRETTY = False
 

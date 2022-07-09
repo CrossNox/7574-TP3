@@ -1,4 +1,5 @@
 from multiprocessing import Process
+from multiprocessing.sharedctypes import Synchronized
 import random
 from typing import List
 
@@ -41,6 +42,7 @@ class Server(Process):
         posts_group: List[str],
         comments_group: List[str],
         results_queue: str,
+        leader_value: Synchronized,
     ):
         super().__init__()
         self.context = zmq.Context.instance()  # type: ignore
@@ -51,6 +53,7 @@ class Server(Process):
         self.on_creation_session = 0
         self.posts_group = posts_group
         self.comments_group = comments_group
+        self.leader_value = leader_value
 
         self.storage = ServerStorage(s_id, group_identifier, group_size)
         self.collector = ResultCollector(results_queue)
@@ -70,7 +73,7 @@ class Server(Process):
                 logger.debug("run::receive")
                 req = self.__receive()
                 logger.debug("receive got response")
-                if bully_am_leader():
+                if bully_am_leader(self.leader_value):
                     if not i_was_leader:
                         logger.debug("starting collector")
                         self.collector.start()
@@ -100,7 +103,7 @@ class Server(Process):
 
     def __handle_as_replica(self, _msg: ClientMsg):
         # TODO: Posible bug, que el líder no sea el host
-        leader = bully_get_leader()
+        leader = bully_get_leader(self.leader_value)
 
         if leader is None:
             self.__send(MessageType.NOTAVAIL)

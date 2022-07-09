@@ -1,4 +1,5 @@
-from multiprocessing import Value, Process
+from multiprocessing import Process
+from multiprocessing.sharedctypes import Synchronized
 import time
 from typing import Any, Dict, List
 
@@ -20,7 +21,7 @@ from lazarus.utils import get_logger
 logger = get_logger(__name__)
 
 
-def wait_for_leader(leader_value: Value):
+def wait_for_leader(leader_value: Synchronized):
     logger.debug("Entering wait_for_leader")
     while True:
         logger.info("wait_for_leader:: Acquiring log")
@@ -35,20 +36,20 @@ def wait_for_leader(leader_value: Value):
     logger.debug("Leaving wait_for_leader")
 
 
-#  def get_leader():
-#      leader = get_leader_state()
-#      return None if leader in (UNKNOWN, LOOKINGFOR) else leader
+def get_leader(leader_value):
+    leader = get_leader_state(leader_value)
+    return None if leader in (UNKNOWN, LOOKINGFOR) else leader
 
 
-# def am_leader():
-#    return get_leader() == cfg.lazarus.identifier()
+def am_leader(leader_value):
+    return get_leader(leader_value) == cfg.lazarus.identifier()
 
 
-# def get_leader_state() -> str:
-#    logger.info("Entering get_leader_state")
-#    leader = LeaderValue().value
-#    logger.info("Leaving get_leader_state w/leader %s", leader)
-#    return leader
+def get_leader_state(leader_value) -> str:
+    logger.info("Entering get_leader_state")
+    leader = leader_value.value
+    logger.info("Leaving get_leader_state w/leader %s", leader)
+    return leader
 
 
 def try_send(container, sibling, socket, msg, tolerance):
@@ -86,7 +87,7 @@ def try_recv(container, sibling, socket, expected_type, tolerance):
 def elect_leader(
     container: str,
     group: List[str],
-    leader_value: Value,
+    leader_value: Synchronized,
     tolerance: int = cfg.lazarus.bully_tolerance(
         default=DEFAULT_BULLY_TOLERANCE, cast=int
     ),
@@ -132,7 +133,7 @@ def elect_leader(
                 leader_notified.append(sibling)
 
         logger.info("%s is the leader", container)
-        leader_value = container
+        leader_value.value = container
         return
 
 
@@ -141,7 +142,7 @@ class LeaderElectionListener(Process):
         self,
         node_id: str,
         group: List[str],
-        leader_value: Value,
+        leader_value: Synchronized,
         port: int = cfg.lazarus.bully_port(default=DEFAULT_BULLY_PORT),
     ):
         super().__init__()
@@ -178,7 +179,7 @@ class LeaderElectionListener(Process):
         if response["type"] == ELECTION:
             logger.info("Received ELECTION")
             try_send(self.identifier, "sibling", self.socket, ping_msg, self.tolerance)
-            if self.leader_value.value == LOOKINGFOR:
+            if get_leader_state(self.leader_value) == LOOKINGFOR:
                 logger.info("I'm already in election, so we ignore this msg")
             else:
                 # TODO: We are not joining processes right here
@@ -196,4 +197,4 @@ class LeaderElectionListener(Process):
         while True:
             logger.info("Listening for leader election")
             self.reply_to_leader_election()
-            logger.info("Leader is < %s >", self.leader_value.value)
+            logger.info("Leader is < %s >", get_leader_state(self.leader_value))
