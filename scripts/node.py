@@ -1,7 +1,7 @@
 import argparse
 
-from lazarus.sidecar import HeartbeatSender
 from lazarus.utils import config_logging
+from lazarus.sidecar import HeartbeatSender
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
