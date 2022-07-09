@@ -81,25 +81,6 @@ class ElectLeader:
             p.join()
 
 
-# class HealthyElectionCallback:
-#    def __init__(self, node_id, group, leader_value):
-#        self.node_id = node_id
-#        self.group = group
-#        self.leader_value = leader_value
-#
-#    def __call__(self):
-#        p = Process(
-#            target=elect_leader, args=(self.node_id, self.group, self.leader_value)
-#        )
-#        p.start()
-#        p.join()
-#        # elect_leader(self.node_id, self.group, self.leader_value)
-#        logger.info(
-#            "HealthyElectionCallback:: leader_value is %s",
-#            self.leader_value.value.decode(),
-#        )
-
-
 @app.command()
 def server(
     server_id: int = typer.Argument(...),

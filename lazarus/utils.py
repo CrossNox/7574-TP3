@@ -3,7 +3,6 @@
 import base64
 import logging
 import pathlib
-from multiprocessing import Value
 from typing import Tuple, Callable
 
 import pika
@@ -11,7 +10,6 @@ import typer
 import urllib3
 
 import docker
-from lazarus.constants import UNKNOWN
 
 DEFAULT_PRETTY = False
 
@@ -156,25 +154,3 @@ def build_node_id(group_id: str, node_id: int) -> str:
 
 def queue_in_name(input_group_id: str, group_id: str, node_id: int) -> str:
     return f"{input_group_id}::{build_node_id(group_id, node_id)}"
-
-
-class AtomicLeaderValue:
-    def __init__(self):
-        self._value = Value(str, UNKNOWN)
-
-    @property
-    def value(self):
-        return self._value.value
-
-    @value.setter
-    def value(self, newval):
-        self._value.value = newval
-
-
-class LeaderValue(AtomicLeaderValue):
-    _instance = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance

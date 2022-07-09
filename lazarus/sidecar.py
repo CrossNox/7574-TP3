@@ -108,15 +108,13 @@ class HeartbeatsListener(Process):
         hosts: List[Tuple[str, int]],
         error_callback: Callable,
         sleep_time: int = cfg.lazarus.sleep_time(default=DEFAULT_SLEEP_TIME, cast=int),
-        all_healthy: Optional[EventClass] = None
-        # first_healthy_callback: Optional[Callable] = None,
+        all_healthy: Optional[EventClass] = None,
     ):
         """Monitor the heartbeats of hosts."""
         super().__init__()
         self.sleep_time = sleep_time
         self.hosts = hosts
         self.error_callback = error_callback
-        # self.first_healthy_callback = first_healthy_callback
         self.all_healthy = all_healthy
 
     def run(self):
@@ -143,10 +141,6 @@ class HeartbeatsListener(Process):
         logger.info("All healthy!")
         if self.all_healthy is not None:
             self.all_healthy.set()
-        # if self.first_healthy_callback is not None:
-        #    logger.info("Running healthy callback")
-        #    self.first_healthy_callback()
-        #    logger.info("Healthy callback ran!")
         for p in listeners:
             p.join()
         # TODO: catch KeyboardInterrupt and SIGTERM

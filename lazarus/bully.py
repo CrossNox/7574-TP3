@@ -9,6 +9,7 @@ from lazarus.cfg import cfg
 from lazarus.utils import get_logger
 from lazarus.constants import (
     PING,
+    EPSILON,
     UNKNOWN,
     VICTORY,
     ELECTION,
@@ -109,8 +110,8 @@ def elect_leader(
     election_notified = []
     for sibling in [c for c in group if c > container]:
         socket = ctx.socket(zmq.REQ)
-        socket.RCVTIMEO = int(BULLY_TIMEOUT_MS * 1.1)
-        socket.SNDTIMEO = int(BULLY_TIMEOUT_MS * 1.1)
+        socket.RCVTIMEO = int(BULLY_TIMEOUT_MS * EPSILON)
+        socket.SNDTIMEO = int(BULLY_TIMEOUT_MS * EPSILON)
 
         logger.info("Connect to tcp://%s:%s", sibling, DEFAULT_BULLY_PORT)
         socket.connect(f"tcp://{sibling}:{DEFAULT_BULLY_PORT}")
@@ -126,8 +127,8 @@ def elect_leader(
     if not election_notified:
         for sibling in [c for c in group if c != container]:
             socket = ctx.socket(zmq.REQ)
-            socket.RCVTIMEO = int(BULLY_TIMEOUT_MS * 1.1)
-            socket.SNDTIMEO = int(BULLY_TIMEOUT_MS * 1.1)
+            socket.RCVTIMEO = int(BULLY_TIMEOUT_MS * EPSILON)
+            socket.SNDTIMEO = int(BULLY_TIMEOUT_MS * EPSILON)
             logger.info("Connect to tcp://%s:%s", sibling, DEFAULT_BULLY_PORT)
             socket.connect(f"tcp://{sibling}:{DEFAULT_BULLY_PORT}")
             msg = {"type": VICTORY, "host": container}
@@ -177,10 +178,9 @@ class LeaderElectionListener(Process):
                 raise
 
         logger.info(
-            "LeaderElectionListener:: %s got %s %s",
+            "LeaderElectionListener:: %s got %s",
             self.identifier,
             response["type"],
-            response,
         )
 
         ping_msg = {"type": PING, "host": self.identifier}
@@ -212,8 +212,8 @@ class LeaderElectionListener(Process):
         self.sock_rep = ctx.socket(zmq.REP)
         logger.info("Binding to tcp://*:%s", self.port)
         self.sock_rep.bind(f"tcp://*:{self.port}")
-        self.sock_rep.RCVTIMEO = int(BULLY_TIMEOUT_MS * 1.1)
-        self.sock_rep.SNDTIMEO = int(BULLY_TIMEOUT_MS * 1.1)
+        self.sock_rep.RCVTIMEO = int(BULLY_TIMEOUT_MS * EPSILON)
+        self.sock_rep.SNDTIMEO = int(BULLY_TIMEOUT_MS * EPSILON)
 
         while True:
             logger.info("Listening for leader election")
