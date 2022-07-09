@@ -2,9 +2,15 @@ from dataclasses import dataclass
 from typing import Dict, List, Union, Optional
 
 import docker
+
 from lazarus.cfg import cfg
+from lazarus.constants import (
+    DOCKER_NETWORK,
+    DEFAULT_DATA_DIR,
+    DOCKER_IMAGE_NAME,
+    DEFAULT_HEARTBEAT_PORT,
+)
 from lazarus.utils import get_logger, queue_in_name
-from lazarus.constants import DOCKER_NETWORK, DEFAULT_DATA_DIR, DOCKER_IMAGE_NAME
 
 logger = get_logger(__name__)
 
@@ -34,9 +40,7 @@ def revive(
             detach=True,
             network=network,
             environment=env,
-            volumes=[
-                f"{cfg.lazarus.datadir()}:{DEFAULT_DATA_DIR}",
-            ],
+            volumes=[f"{cfg.lazarus.datadir()}:{DEFAULT_DATA_DIR}",],
             remove=True,
         )
 
@@ -44,9 +48,10 @@ def revive(
 
         from lazarus.constants import HEARTBEAT
 
-        ctx = zmq.Context()
+        ctx = zmq.Context.instance()
         sub = ctx.socket(zmq.SUB)
         sub.setsockopt_string(zmq.SUBSCRIBE, "")
+        sub.connect(f"tcp://{identifier}:{DEFAULT_HEARTBEAT_PORT}")
         hb = sub.recv_json()
         if hb["node_id"] == identifier and hb["payload"] == HEARTBEAT:  # type: ignore
             return container

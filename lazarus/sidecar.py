@@ -1,12 +1,11 @@
-import time
 from multiprocessing import Event, Process
-from typing import List, Tuple, Callable, Optional
 from multiprocessing.synchronize import Event as EventClass
+import time
+from typing import List, Tuple, Callable, Optional
 
 import zmq
 
 from lazarus.cfg import cfg
-from lazarus.utils import get_logger
 from lazarus.constants import (
     PING,
     EPSILON,
@@ -15,6 +14,7 @@ from lazarus.constants import (
     DEFAULT_SLEEP_TIME,
     DEFAULT_HEARTBEAT_PORT,
 )
+from lazarus.utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -108,14 +108,16 @@ class HeartbeatsListener(Process):
         hosts: List[Tuple[str, int]],
         error_callback: Callable,
         sleep_time: int = cfg.lazarus.sleep_time(default=DEFAULT_SLEEP_TIME, cast=int),
-        first_healthy_callback: Optional[Callable] = None,
+        all_healthy: Optional[EventClass] = None
+        # first_healthy_callback: Optional[Callable] = None,
     ):
         """Monitor the heartbeats of hosts."""
         super().__init__()
         self.sleep_time = sleep_time
         self.hosts = hosts
         self.error_callback = error_callback
-        self.first_healthy_callback = first_healthy_callback
+        # self.first_healthy_callback = first_healthy_callback
+        self.all_healthy = all_healthy
 
     def run(self):
         healthies = [Event() for _ in self.hosts]
@@ -139,11 +141,12 @@ class HeartbeatsListener(Process):
         for h in healthies:
             h.wait()
         logger.info("All healthy!")
-        if self.first_healthy_callback is not None:
-            logger.info("Running healthy callback")
-            self.first_healthy_callback()
-            logger.info("Healthy callback ran!")
-            logger.info("Leader is %s", cfg.lazarus.group_leader())
+        if self.all_healthy is not None:
+            self.all_healthy.set()
+        # if self.first_healthy_callback is not None:
+        #    logger.info("Running healthy callback")
+        #    self.first_healthy_callback()
+        #    logger.info("Healthy callback ran!")
         for p in listeners:
             p.join()
         # TODO: catch KeyboardInterrupt and SIGTERM
@@ -154,11 +157,7 @@ class PingReplier(Process):
         """Reply to pings to notify others that you are still alive."""
         super().__init__()
         self.port = port
-
-        ctx = zmq.Context.instance()
-
-        self.socket = ctx.socket(zmq.REP)
-        self.socket.bind("tcp://*:{self.port}")
+        self.socket = zmq.sugar.socket.Socket
 
     def reply_to_ping(self):
         ping = self.socket.recv_string()
@@ -167,6 +166,11 @@ class PingReplier(Process):
         self.socket.send_string(PING)
 
     def run(self):
+        ctx = zmq.Context.instance()
+
+        self.socket = ctx.socket(zmq.REP)
+        self.socket.bind("tcp://*:{self.port}")
+
         while True:
             self.reply_to_ping()
 

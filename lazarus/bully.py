@@ -1,12 +1,11 @@
+from multiprocessing import Process
+from multiprocessing.sharedctypes import SynchronizedString
 import time
 from typing import Any, Dict, List
-from multiprocessing import Process
-from multiprocessing.sharedctypes import Synchronized
 
 import zmq
 
 from lazarus.cfg import cfg
-from lazarus.utils import get_logger
 from lazarus.constants import (
     PING,
     UNKNOWN,
@@ -17,20 +16,22 @@ from lazarus.constants import (
     DEFAULT_BULLY_PORT,
     DEFAULT_BULLY_TOLERANCE,
 )
+from lazarus.utils import get_logger
 
 logger = get_logger(__name__)
 
 
-def wait_for_leader(leader_value: Synchronized):
+def wait_for_leader(leader_value: SynchronizedString):
     logger.debug("Entering wait_for_leader")
     while True:
-        logger.info("wait_for_leader:: Acquiring log")
-        logger.info("wait_for_leader:: Lock acquired")
-        keep_going = leader_value.value in (UNKNOWN, LOOKINGFOR)
-        logger.info("wait_for_leader:: Lock released")
+        keep_going = leader_value.value.decode() in (UNKNOWN, LOOKINGFOR)
         if keep_going:
             logger.info("wait_for_leader:: keep going, sleeping")
-            time.sleep(cfg.lazarus.bully_timeout(default=BULLY_TIMEOUT_MS, cast=int))
+            time.sleep(
+                cfg.lazarus.bully_timeout(
+                    default=int(BULLY_TIMEOUT_MS / 1000), cast=int
+                )
+            )
         else:
             break
     logger.debug("Leaving wait_for_leader")
@@ -47,13 +48,13 @@ def am_leader(leader_value):
 
 def get_leader_state(leader_value) -> str:
     logger.info("Entering get_leader_state")
-    leader = leader_value.value
+    leader = leader_value.value.decode()
     logger.info("Leaving get_leader_state w/leader %s", leader)
     return leader
 
 
-def set_leader_state(leader_value: Synchronized, state: str):
-    leader_value.value = state
+def set_leader_state(leader_value: SynchronizedString, state: str):
+    leader_value.value = state.encode()
 
 
 def try_send(container, sibling, socket, msg, tolerance):
@@ -91,7 +92,7 @@ def try_recv(container, sibling, socket, expected_type, tolerance):
 def elect_leader(
     container: str,
     group: List[str],
-    leader_value: Synchronized,
+    leader_value: SynchronizedString,
     tolerance: int = cfg.lazarus.bully_tolerance(
         default=DEFAULT_BULLY_TOLERANCE, cast=int
     ),
@@ -110,6 +111,7 @@ def elect_leader(
         socket = ctx.socket(zmq.REQ)
         socket.RCVTIMEO = int(BULLY_TIMEOUT_MS * 1.1)
         socket.SNDTIMEO = int(BULLY_TIMEOUT_MS * 1.1)
+
         logger.info("Connect to tcp://%s:%s", sibling, DEFAULT_BULLY_PORT)
         socket.connect(f"tcp://{sibling}:{DEFAULT_BULLY_PORT}")
         msg = {"type": ELECTION, "host": container}
@@ -146,43 +148,47 @@ class LeaderElectionListener(Process):
         self,
         node_id: str,
         group: List[str],
-        leader_value: Synchronized,
-        port: int = cfg.lazarus.bully_port(default=DEFAULT_BULLY_PORT),
+        leader_value: SynchronizedString,
+        port: int = cfg.lazarus.bully_port(default=DEFAULT_BULLY_PORT, cast=int),
+        tolerance: int = cfg.lazarus.bully_tolerance(
+            default=DEFAULT_BULLY_TOLERANCE, cast=int
+        ),
     ):
         super().__init__()
         self.identifier = node_id
         self.group = group
         self.leader_value = leader_value
         self.port = port
-        self.tolerance = cfg.lazarus.bully_tolerance(
-            default=DEFAULT_BULLY_TOLERANCE, cast=int
-        )
-        ctx = zmq.Context.instance()
+        self.tolerance = tolerance
 
-        self.socket = ctx.socket(zmq.REP)
-        self.socket.RCVTIMEO = int(BULLY_TIMEOUT_MS * 1.1)
-        self.socket.SNDTIMEO = int(BULLY_TIMEOUT_MS * 1.1)
-
-        logger.info("Binding to tcp://*:%s", self.port)
-        self.socket.bind(f"tcp://*:{self.port}")
+        self.sock_rep: zmq.sugar.socket.Socket
 
         logger.info("LeaderElectionListener :: %s -> %s", self.identifier, self.group)
 
     def reply_to_leader_election(self) -> None:
         try:
-            response: Dict[str, Any] = self.socket.recv_json()  # type:ignore
+            logger.info("LeaderElectionListener:: Trying to get recv")
+            response: Dict[str, Any] = self.sock_rep.recv_json()  # type:ignore
+            logger.info("LeaderElectionListener:: got recv")
         except zmq.error.ZMQError as e:
             if e.errno == zmq.EAGAIN:
                 return
             else:
                 raise
 
-        logger.info("%s got %s", self.identifier, response["type"])
+        logger.info(
+            "LeaderElectionListener:: %s got %s %s",
+            self.identifier,
+            response["type"],
+            response,
+        )
 
         ping_msg = {"type": PING, "host": self.identifier}
         if response["type"] == ELECTION:
             logger.info("Received ELECTION")
-            try_send(self.identifier, "sibling", self.socket, ping_msg, self.tolerance)
+            try_send(
+                self.identifier, "sibling", self.sock_rep, ping_msg, self.tolerance
+            )
             if get_leader_state(self.leader_value) == LOOKINGFOR:
                 logger.info("I'm already in election, so we ignore this msg")
             else:
@@ -194,10 +200,20 @@ class LeaderElectionListener(Process):
 
         elif response["type"] == VICTORY:
             logger.info("Received VICTORY")
-            try_send(self.identifier, "sibling", self.socket, ping_msg, self.tolerance)
+            try_send(
+                self.identifier, "sibling", self.sock_rep, ping_msg, self.tolerance
+            )
             set_leader_state(self.leader_value, response["host"])
 
     def run(self):
+        ctx = zmq.Context.instance()
+
+        self.sock_rep = ctx.socket(zmq.REP)
+        logger.info("Binding to tcp://*:%s", self.port)
+        self.sock_rep.bind(f"tcp://*:{self.port}")
+        self.sock_rep.RCVTIMEO = int(BULLY_TIMEOUT_MS * 1.1)
+        self.sock_rep.SNDTIMEO = int(BULLY_TIMEOUT_MS * 1.1)
+
         while True:
             logger.info("Listening for leader election")
             self.reply_to_leader_election()
