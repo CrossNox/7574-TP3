@@ -1,7 +1,6 @@
 import json
 import hashlib
-import threading
-from multiprocessing import Process
+from multiprocessing import Lock, Event, Process
 from typing import Dict, List, Type, Union, TypeVar, Optional, Sequence
 
 from tqdm import tqdm
@@ -66,7 +65,7 @@ class Node(Process):
         logger.info("Solved dependencies %s", self.dependencies)
         self.callback = self.callback_cls(**self.dependencies, **self.callback_kwargs)
 
-        self.run_lock = threading.Lock()
+        self.run_lock = Lock()
 
         # If there are any messages, and we need to recover, reprocess each message
         if self.storage is not None and self.storage.contains_topic("messages"):
@@ -105,7 +104,7 @@ class Node(Process):
         return solved_dependencies
 
     def fetch_result(self, key: str, queue: Queue):
-        done_event = threading.Event()
+        done_event = Event()
 
         class DummyCallback:
             def __init__(self, done, key, n_eos: int = 1):

@@ -1,4 +1,4 @@
-from threading import Event
+from multiprocessing import Event
 from typing import Dict, List, Union
 
 from lazarus.cfg import cfg
@@ -84,6 +84,7 @@ class ServerStorage:
                 try:
                     mtype = msg["type"]
                     data = msg["data"]
+                    logger.info("Got message %s", msg)
                     if mtype == "token":
                         if data == self.identifier:
                             msg.ack()
@@ -111,11 +112,13 @@ class ServerStorage:
         queue = Queue(MOM_HOST, self.identifier)
         queue.consume(__callback)
         finished.wait()
+        logger.info("Finished! Closing queue")
         queue.close()
+        logger.info("Queue closed")
 
         # Now we recover state from db
-        session_id = coalesce(storage.get)("session_id", topic=DB_TOPIC)
-        result = coalesce(storage.get)("result", topic=DB_TOPIC)
+        session_id = coalesce(storage.get, log=False)("session_id", topic=DB_TOPIC)
+        result = coalesce(storage.get, log=False)("result", topic=DB_TOPIC)
 
         if session_id is None:
             session_id = NO_SESSION

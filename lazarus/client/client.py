@@ -128,7 +128,7 @@ class Client:
 
                 return resp
             except:  # pylint:disable=bare-except
-                logger.error("Exception trying to connect to server.", exc_info=True)
+                logger.error("Exception trying to connect to server.")
 
     def __get_computation_result(self):
         while True:
@@ -237,7 +237,7 @@ class Client:
 
             return resp
         except Exception:
-            logger.error("Connection with server failed", exc_info=True)
+            logger.error("Connection with server failed")
             self.__close_connection()
             return None
 

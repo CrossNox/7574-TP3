@@ -8,6 +8,6 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=5555)
     args = parser.parse_args()
     config_logging(verbose=2, pretty=True)
-    hbs = HeartbeatSender(port=args.port)
+    hbs = HeartbeatSender("nodito", port=args.port)
     hbs.start()
     hbs.join()

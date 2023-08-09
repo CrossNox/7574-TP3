@@ -1,5 +1,7 @@
 import random
 from typing import List
+from multiprocessing import Process
+from multiprocessing.sharedctypes import SynchronizedString
 
 import zmq
 
@@ -31,7 +33,7 @@ MAX_SESSION_ID: int = 100_000_000
 logger = get_logger(__name__)
 
 
-class Server:
+class Server(Process):
     def __init__(
         self,
         s_id: int,
@@ -40,15 +42,14 @@ class Server:
         posts_group: List[str],
         comments_group: List[str],
         results_queue: str,
+        leader_value: SynchronizedString,
     ):
-        self.context = zmq.Context.instance()  # type: ignore
-        self.context.setsockopt(zmq.LINGER, 0)
-        self.rep = self.context.socket(zmq.REP)
-        self.rep.bind(f"tcp://*:{SERVER_PORT}")
+        super().__init__()
         self.current_session = NO_SESSION
         self.on_creation_session = 0
         self.posts_group = posts_group
         self.comments_group = comments_group
+        self.leader_value = leader_value
 
         self.storage = ServerStorage(s_id, group_identifier, group_size)
         self.collector = ResultCollector(results_queue)
@@ -57,9 +58,17 @@ class Server:
         logger.info(f"Server started on {SERVER_PORT}")
         logger.debug(f"Server started on {SERVER_PORT}")
 
+        self.rep: zmq.sugar.socket.Socket
+
     def run(self):
+
+        context = zmq.Context.instance()  # type: ignore
+        context.setsockopt(zmq.LINGER, 0)
+        self.rep = context.socket(zmq.REP)
+        self.rep.bind(f"tcp://*:{SERVER_PORT}")
+
         logger.info("Wait for leader")
-        bully_wait_for_leader()
+        bully_wait_for_leader(self.leader_value)
         logger.info("Got leader!")
         i_was_leader = False
 
@@ -68,7 +77,7 @@ class Server:
                 logger.debug("run::receive")
                 req = self.__receive()
                 logger.debug("receive got response")
-                if bully_am_leader():
+                if bully_am_leader(self.leader_value):
                     if not i_was_leader:
                         logger.debug("starting collector")
                         self.collector.start()
@@ -98,7 +107,7 @@ class Server:
 
     def __handle_as_replica(self, _msg: ClientMsg):
         # TODO: Posible bug, que el líder no sea el host
-        leader = bully_get_leader()
+        leader = bully_get_leader(self.leader_value)
 
         if leader is None:
             self.__send(MessageType.NOTAVAIL)

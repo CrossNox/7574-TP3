@@ -1,10 +1,18 @@
 from dataclasses import dataclass
 from typing import Dict, List, Union, Optional
 
+import zmq
+
 import docker
 from lazarus.cfg import cfg
 from lazarus.utils import get_logger, queue_in_name
-from lazarus.constants import DOCKER_NETWORK, DEFAULT_DATA_DIR, DOCKER_IMAGE_NAME
+from lazarus.constants import (
+    HEARTBEAT,
+    DOCKER_NETWORK,
+    DEFAULT_DATA_DIR,
+    DOCKER_IMAGE_NAME,
+    DEFAULT_HEARTBEAT_PORT,
+)
 
 logger = get_logger(__name__)
 
@@ -39,7 +47,21 @@ def revive(
             ],
             remove=True,
         )
-        return container
+
+        # Wait for the first heartbeat in order to make sure it's alive
+        # Otherwise, we could return, and if the initialization was slow enough
+        # we could try to revive it again, container names clashing and raising
+        # a docker error
+        ctx = zmq.Context.instance()
+        sub = ctx.socket(zmq.SUB)
+        sub.setsockopt_string(zmq.SUBSCRIBE, "")
+        sub.connect(f"tcp://{identifier}:{DEFAULT_HEARTBEAT_PORT}")
+        hb = sub.recv_json()
+        if hb["node_id"] == identifier and hb["payload"] == HEARTBEAT:  # type: ignore
+            return container
+        else:
+            raise ValueError("Docker failed!")
+
     except docker.errors.ImageNotFound:
         logger.error(
             "Image %s was not found, please check configuration", image, exc_info=True

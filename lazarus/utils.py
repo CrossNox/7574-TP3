@@ -102,7 +102,7 @@ def ensure_file_directory(path):
     return path
 
 
-def coalesce(f: Callable, log: bool = False) -> Callable:
+def coalesce(f: Callable, log: bool = True) -> Callable:
     """Wrap a function to return None on raised exceptions.
 
     This function makes functions that might raise exception safe for `map`.

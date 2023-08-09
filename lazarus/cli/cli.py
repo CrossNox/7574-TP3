@@ -1,4 +1,5 @@
 from typing import List
+from multiprocessing import Array, Event, Process
 
 import typer
 
@@ -14,11 +15,18 @@ from lazarus.cli.filter import app as filter_app
 from lazarus.cli.dataset import app as dataset_app
 from lazarus.cli.download import app as download_app
 from lazarus.cli.transform import app as transform_app
+from lazarus.bully import LeaderElectionListener, elect_leader
 from lazarus.sidecar import HeartbeatSender, HeartbeatsListener
-from lazarus.bully import LeaderElectionListener, get_leader, elect_leader
 from lazarus.docker_utils import SystemContainer, list_containers_from_config
 from lazarus.mom.exchange import ConsumerType, ConsumerConfig, WorkerExchange
-from lazarus.constants import BULLY_TIMEOUT_MS, DEFAULT_DATA_DIR, DEFAULT_HEARTBEAT_PORT
+from lazarus.constants import (
+    UNKNOWN,
+    LOOKINGFOR,
+    BULLY_TIMEOUT_MS,
+    DEFAULT_DATA_DIR,
+    MAX_IDENTIFIER_SIZE,
+    DEFAULT_HEARTBEAT_PORT,
+)
 from lazarus.utils import (
     DEFAULT_PRETTY,
     DEFAULT_VERBOSE,
@@ -58,13 +66,19 @@ def main(
 
 
 class ElectLeader:
-    def __init__(self, node_id: str, group: List[str]):
+    def __init__(self, node_id: str, group: List[str], leader_value):
         self.node_id = node_id
         self.group = group
+        self.leader_value = leader_value
 
     def __call__(self, host, port):
-        if get_leader() in (host, None):
-            elect_leader(self.node_id, self.group)
+        if self.leader_value.value in (host, UNKNOWN, LOOKINGFOR):
+            # elect_leader(self.node_id, self.group, self.leader_value)
+            p = Process(
+                target=elect_leader, args=(self.node_id, self.group, self.leader_value)
+            )
+            p.start()
+            p.join()
 
 
 @app.command()
@@ -81,18 +95,33 @@ def server(
     group = [build_node_id(group_identifier, i) for i in range(group_size)]
 
     hosts = [(h, DEFAULT_HEARTBEAT_PORT) for h in filter(lambda x: x != node_id, group)]
-    hbs = HeartbeatSender()
+    hbs = HeartbeatSender(node_id)
+
+    leader_value = Array("c", MAX_IDENTIFIER_SIZE)
+    leader_value.value = UNKNOWN.encode()
+    logger.info("Initial leader_value.value is %s", leader_value.value)
+
+    lel = LeaderElectionListener(node_id, group, leader_value)
+    lel.start()
+
+    all_healthy = Event()
+
     hbl = HeartbeatsListener(
-        hosts, ElectLeader(node_id, group), sleep_time=BULLY_TIMEOUT_MS // 1000
+        hosts,
+        ElectLeader(node_id, group, leader_value),
+        sleep_time=BULLY_TIMEOUT_MS // 1000,
+        # first_healthy_callback=HealthyElectionCallback(node_id, group, leader_value,),
+        all_healthy=all_healthy,
     )
 
     hbs.start()
     hbl.start()
 
-    lel = LeaderElectionListener(node_id, group)
-    lel.start()
-
-    elect_leader(node_id, group)
+    logger.info("Waiting for all healthy lock")
+    all_healthy.wait()
+    logger.info("Waiting for all healthy lock")
+    elect_leader(node_id, group, leader_value)
+    logger.info("Leader election over, %s", leader_value.value.decode())
 
     new_server = Server(
         server_id,
@@ -101,8 +130,9 @@ def server(
         posts_group,
         comments_group,
         results_queue,
+        leader_value,
     )
-    new_server.run()
+    new_server.start()
 
 
 class HeartbeatReviverCallback:
@@ -117,8 +147,8 @@ class HeartbeatReviverCallback:
 @app.command()
 def coordinator():
     containers = list_containers_from_config()
-    for container in containers:
-        container.revive()
+    # for container in containers:
+    #    container.revive()
 
     callback = HeartbeatReviverCallback(containers)
     hbl = HeartbeatsListener(
@@ -146,7 +176,9 @@ def collect(
     ),
     rabbit_host: str = typer.Option("rabbitmq", help="The address for rabbitmq"),
 ):
-    heartbeat_sender = HeartbeatSender()
+    node_identifier: str = build_node_id(group_id, node_id)
+
+    heartbeat_sender = HeartbeatSender(node_identifier)
     heartbeat_sender.start()
 
     queues_in: List[Queue] = []
@@ -192,8 +224,6 @@ def collect(
         for output_group_id, output_group_size in parsed_output_groups
     ]
 
-    node_identifier: str = build_node_id(group_id, node_id)
-
     storage = LocalStorage.load(
         cfg.lazarus.data_dir(cast=ensure_path, default=DEFAULT_DATA_DIR)
         / node_identifier
@@ -227,7 +257,9 @@ def join(
     ),
     rabbit_host: str = typer.Option("rabbitmq", help="The address for rabbitmq"),
 ):
-    heartbeat_sender = HeartbeatSender()
+    node_identifier: str = build_node_id(group_id, node_id)
+
+    heartbeat_sender = HeartbeatSender(node_identifier)
     heartbeat_sender.start()
 
     queues_in: List[Queue] = []
@@ -258,7 +290,6 @@ def join(
         )
         for output_group_id, output_group_size in parsed_output_groups
     ]
-    node_identifier: str = build_node_id(group_id, node_id)
 
     storage = LocalStorage.load(
         cfg.lazarus.data_dir(cast=ensure_path, default=DEFAULT_DATA_DIR)

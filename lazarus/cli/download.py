@@ -38,7 +38,9 @@ def best_meme_download(
     ),
     rabbit_host: str = typer.Option("rabbitmq", help="The address for rabbitmq"),
 ):
-    heartbeat_sender = HeartbeatSender()
+    node_identifier: str = build_node_id(group_id, node_id)
+
+    heartbeat_sender = HeartbeatSender(node_identifier)
     heartbeat_sender.start()
 
     input_group_id, input_group_size = parse_group(input_group)
@@ -62,8 +64,6 @@ def best_meme_download(
         )
         for output_group_id, output_group_size in parsed_output_groups
     ]
-
-    node_identifier: str = build_node_id(group_id, node_id)
 
     storage = LocalStorage.load(
         cfg.lazarus.data_dir(cast=ensure_path, default=DEFAULT_DATA_DIR)

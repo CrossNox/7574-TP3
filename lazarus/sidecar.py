@@ -1,6 +1,7 @@
 import time
-from threading import Thread
-from typing import List, Tuple, Callable
+from multiprocessing import Event, Process
+from typing import List, Tuple, Callable, Optional
+from multiprocessing.synchronize import Event as EventClass
 
 import zmq
 
@@ -18,9 +19,10 @@ from lazarus.constants import (
 logger = get_logger(__name__)
 
 
-class HeartbeatSender(Thread):
+class HeartbeatSender(Process):
     def __init__(
         self,
+        node_id: str,
         sleep_time: int = cfg.lazarus.sleep_time(default=DEFAULT_SLEEP_TIME, cast=int),
         port: int = cfg.lazarus.heartbeat_port(
             default=DEFAULT_HEARTBEAT_PORT, cast=int
@@ -28,6 +30,7 @@ class HeartbeatSender(Thread):
     ):
         """Publish a heartbeat at regular intervals to notify you are still alive."""
         super().__init__()
+        self.node_id = node_id
         self.sleep_time = sleep_time
         self.port = port
 
@@ -35,7 +38,7 @@ class HeartbeatSender(Thread):
 
     def send_heartbeat(self):
         logger.info("Sending heartbeat")
-        self.socket.send_string(HEARTBEAT)
+        self.socket.send_json(dict(payload=HEARTBEAT, node_id=self.node_id))
 
     def run(self):
         ctx = zmq.Context.instance()
@@ -51,7 +54,12 @@ class HeartbeatSender(Thread):
 
 
 def monitor_heartbeat(
-    host: str, port: int, error_callback: Callable, sleep_time: int, tolerance: int = 3
+    host: str,
+    port: int,
+    error_callback: Callable,
+    healthy: EventClass,
+    sleep_time: int,
+    tolerance: int = 3,
 ):
     """Monitor the heartbeat of a host.
 
@@ -74,11 +82,13 @@ def monitor_heartbeat(
     misses = 0
     while True:
         try:
-            heartbeat = socket.recv_string()
-            if not heartbeat == HEARTBEAT:
+            heartbeat = socket.recv_json()
+            if not heartbeat["payload"] == HEARTBEAT or heartbeat["node_id"] != host:  # type: ignore
                 raise ValueError(f"Expected heartbeat {HEARTBEAT}, got {heartbeat}")
-            logger.info("Heartbeat from %s Ok", host)
+            logger.info("Heartbeat %s from %s Ok", heartbeat, host)
             misses = 0
+            if not healthy.is_set():
+                healthy.set()
         except zmq.error.ZMQError as e:
             if e.errno == zmq.EAGAIN:
                 misses += 1
@@ -92,45 +102,56 @@ def monitor_heartbeat(
                 misses = 0
 
 
-class HeartbeatsListener(Thread):
+class HeartbeatsListener(Process):
     def __init__(
         self,
         hosts: List[Tuple[str, int]],
         error_callback: Callable,
         sleep_time: int = cfg.lazarus.sleep_time(default=DEFAULT_SLEEP_TIME, cast=int),
+        all_healthy: Optional[EventClass] = None,
     ):
         """Monitor the heartbeats of hosts."""
         super().__init__()
         self.sleep_time = sleep_time
         self.hosts = hosts
         self.error_callback = error_callback
+        self.all_healthy = all_healthy
 
     def run(self):
+        healthies = [Event() for _ in self.hosts]
         listeners = [
-            Thread(
+            Process(
                 target=monitor_heartbeat,
-                args=(host, port, self.error_callback, self.sleep_time * 1000),
+                args=(
+                    host,
+                    port,
+                    self.error_callback,
+                    healthy,
+                    self.sleep_time * 1000,
+                ),
             )
-            for host, port in self.hosts
+            for (host, port), healthy in zip(self.hosts, healthies)
         ]
         logger.info("Listening to the heartbeats of %s", len(listeners))
         for p in listeners:
             p.start()
+        logger.info("Waiting for all to be healthy")
+        for h in healthies:
+            h.wait()
+        logger.info("All healthy!")
+        if self.all_healthy is not None:
+            self.all_healthy.set()
         for p in listeners:
             p.join()
         # TODO: catch KeyboardInterrupt and SIGTERM
 
 
-class PingReplier(Thread):
+class PingReplier(Process):
     def __init__(self, port: int = cfg.lazarus.ping_port(default=DEFAULT_PING_PORT)):
         """Reply to pings to notify others that you are still alive."""
         super().__init__()
         self.port = port
-
-        ctx = zmq.Context.instance()
-
-        self.socket = ctx.socket(zmq.REP)
-        self.socket.bind("tcp://*:{self.port}")
+        self.socket = zmq.sugar.socket.Socket
 
     def reply_to_ping(self):
         ping = self.socket.recv_string()
@@ -139,6 +160,11 @@ class PingReplier(Thread):
         self.socket.send_string(PING)
 
     def run(self):
+        ctx = zmq.Context.instance()
+
+        self.socket = ctx.socket(zmq.REP)
+        self.socket.bind("tcp://*:{self.port}")
+
         while True:
             self.reply_to_ping()
 
@@ -178,7 +204,7 @@ def monitor_ping(
                 misses = 0
 
 
-class PingMonitor(Thread):
+class PingMonitor(Process):
     def __init__(
         self,
         hosts: List[Tuple[str, int]],
@@ -199,7 +225,7 @@ class PingMonitor(Thread):
 
     def run(self):
         listeners = [
-            Thread(
+            Process(
                 target=monitor_ping,
                 args=(host, port, self.error_callback, self.sleep_time * 1000),
             )

@@ -1,5 +1,5 @@
 import queue as q
-from threading import Event
+from multiprocessing import Event
 
 from lazarus.cfg import cfg
 from lazarus.mom.queue import Queue
